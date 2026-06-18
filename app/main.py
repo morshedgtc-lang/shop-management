@@ -102,7 +102,7 @@ def dashboard(
     )
     total_expenses = sum(e.amount for e in expenses)
 
-    low_stock = db.query(Part).filter(Part.stock_qty <= Part.min_stock_alert).count()
+    low_stock_parts = db.query(Part).filter(Part.stock_qty <= Part.min_stock_alert).all()
 
     recent_repairs = (
         db.query(Repair)
@@ -117,20 +117,25 @@ def dashboard(
         cust = db.query(Cust).filter(Cust.id == r.customer_id).first()
         recent_list.append({
             "id": r.id,
-            "customer": cust.name if cust else "Unknown",
+            "customer_name": cust.name if cust else "Unknown",
             "model": r.model,
             "status": r.status,
             "created_at": str(r.created_at) if r.created_at else "",
         })
 
+    low_stock_list = [
+        {"id": p.id, "name": p.name, "model": p.model, "stock_qty": p.stock_qty, "min_stock_alert": p.min_stock_alert}
+        for p in low_stock_parts
+    ]
+
     return {
-        "total_repairs": total_repairs,
+        "today_repairs": total_repairs,
         "pending": pending,
         "in_progress": in_progress,
         "completed_today": completed_today,
-        "revenue_today": total_revenue,
-        "expenses_today": total_expenses,
-        "net_profit_today": total_revenue - total_expenses,
-        "low_stock_count": low_stock,
+        "today_revenue": total_revenue,
+        "today_expenses": total_expenses,
+        "net_profit": total_revenue - total_expenses,
+        "low_stock": low_stock_list,
         "recent_repairs": recent_list,
     }

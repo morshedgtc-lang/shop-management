@@ -166,7 +166,7 @@ const CURRENCIES=['USD','EUR','GBP','NGN','KES','GHS','ZAR','INR','PKR','PHP','I
 const EXPENSE_CATEGORIES=['Rent','Utilities','Supplies','Equipment','Transport','Marketing','Maintenance','Other'];
 const PAYMENT_METHODS=['Cash','Card','Bank Transfer','Mobile Money','Online','Other'];
 
-let state={page:'dashboard',user:null,settings:{shop_name:'Shop Management',currency:'USD'},repairs:{data:[],page:1,total:0},customers:{data:[],page:1,total:0},parts:{data:[],page:1,total:0},services:{data:[],page:1,total:0},payments:{data:[],page:1,total:0},expenses:{data:[],page:1,total:0},daily_sales:{data:[],page:1,total:0},staff:{data:[],page:1,total:0},dashboard:{},filters:{}};
+let state={page:'dashboard',user:null,settings:{shop_name:'Shop Management',default_currency:'USD'},repairs:{data:[],page:1,total:0},customers:{data:[],page:1,total:0},parts:{data:[],page:1,total:0},services:{data:[],page:1,total:0},payments:{data:[],page:1,total:0},expenses:{data:[],page:1,total:0},daily_sales:{data:[],page:1,total:0},staff:{data:[],page:1,total:0},dashboard:{},filters:{}};
 
 async function api(url,opts={}){
 const token=localStorage.getItem('token');
@@ -205,7 +205,7 @@ document.getElementById('sidebarOverlay').classList.toggle('open');
 
 function setPage(page){state.page=page;state.filters={};render();document.querySelector('.sidebar')?.classList.remove('open');document.getElementById('sidebarOverlay')?.classList.remove('open');}
 
-function formatCurrency(amt,cur){return (cur||state.settings.currency)+' '+Number(amt||0).toFixed(2);}
+function formatCurrency(amt,cur){return (cur||state.settings.default_currency)+' '+Number(amt||0).toFixed(2);}
 function formatDate(d){if(!d)return'-';return new Date(d).toLocaleDateString();}
 function formatDateTime(d){if(!d)return'-';return new Date(d).toLocaleString();}
 
@@ -301,7 +301,7 @@ ${(d.recent_repairs||[]).map(r=>`<tr><td>#${r.id}</td><td>${r.customer_name||'-'
 </div>
 <div class="card"><div class="card-header"><h3>Low Stock Alerts</h3></div>
 ${(d.low_stock||[]).length?`<table><thead><tr><th>Part</th><th>Model</th><th>Stock</th><th>Min</th></tr></thead><tbody>
-${(d.low_stock||[]).map(p=>`<tr><td>${p.name}</td><td>${p.model||'-'}</td><td style="color:var(--danger)">${p.stock}</td><td>${p.min_stock}</td></tr>`).join('')}
+${(d.low_stock||[]).map(p=>`<tr><td>${p.name}</td><td>${p.model||'-'}</td><td style="color:var(--danger)">${p.stock_qty}</td><td>${p.min_stock_alert}</td></tr>`).join('')}
 </tbody></table>`:'<div class="empty">All parts well stocked</div>'}
 </div></div>`;
 }
@@ -315,7 +315,7 @@ if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
 if(f.date_from)url+=`&date_from=${f.date_from}`;
 if(f.date_to)url+=`&date_to=${f.date_to}`;
 const r=await api(url);
-if(r.ok){state.repairs={data:r.data.repairs||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+if(r.ok){state.repairs={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0};}
 render();
 }
 
@@ -336,7 +336,7 @@ ${data.length?data.map(r=>`<tr>
 <td>#${r.id}</td><td>${r.customer_name||'-'}</td><td>${r.model||'-'}</td>
 <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.issues||'-'}</td>
 <td><span class="badge ${STATUS_COLORS[r.status]||''}">${(r.status||'').replace('_',' ')}</span></td>
-<td>${r.assigned_name||'-'}</td><td>${formatDate(r.created_at)}</td>
+<td>${r.assigned_user_name||'-'}</td><td>${formatDate(r.created_at)}</td>
 <td><div style="display:flex;gap:6px">
 <button class="btn btn-ghost btn-sm" onclick="showRepairDetail(${r.id})">View</button>
 <select class="btn btn-ghost btn-sm" onchange="updateRepairStatus(${r.id},this.value)" style="padding:4px 8px;font-size:11px">
@@ -434,8 +434,8 @@ else toast(r.data.error||'Failed','error');
 
 async function showNewRepairModal(){
 const[customersRes,staffRes]=await Promise.all([api('/api/customers?limit=100'),api('/api/staff?limit=100')]);
-const customers=customersRes.ok?(customersRes.data.customers||customersRes.data.data||[]):[];
-const staff=staffRes.ok?(staffRes.data.staff||staffRes.data.data||[]):[];
+const customers=customersRes.ok?(customersRes.data.items||[]):[];
+const staff=staffRes.ok?(Array.isArray(staffRes.data)?staffRes.data:staffRes.data.items||[]):[];
 
 showModal(`<div class="modal-header"><h2>New Repair</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
 <div class="modal-body"><form onsubmit="createRepair(event)">
@@ -498,12 +498,12 @@ else toast(r.data.error||'Failed','error');
 
 async function showAddPartUsedModal(repairId){
 const r=await api('/api/parts?limit=100');
-const parts=r.ok?(r.data.parts||r.data.data||[]):[];
+const parts=r.ok?(r.data.items||[]):[];
 showModal(`<div class="modal-header"><h2>Add Part</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
 <div class="modal-body"><form onsubmit="addPartUsed(event,${repairId})">
 <div class="form-group"><label>Part *</label><select id="addPartId" required>
 <option value="">Select part</option>
-${parts.map(p=>`<option value="${p.id}">${p.name} (${p.model||'any'}) - Stock: ${p.stock}</option>`).join('')}
+${parts.map(p=>`<option value="${p.id}">${p.name} (${p.model||'any'}) - Stock: ${p.stock_qty}</option>`).join('')}
 </select></div>
 <div class="form-row">
 <div class="form-group"><label>Quantity</label><input type="number" id="addPartQty" value="1" min="1"></div>
@@ -530,7 +530,7 @@ showModal(`<div class="modal-header"><h2>Add Payment</h2><button class="modal-cl
 <div class="form-row">
 <div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="payAmount" required></div>
 <div class="form-group"><label>Currency</label><select id="payCurrency">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="form-group"><label>Method *</label><select id="payMethod" required>
@@ -561,7 +561,7 @@ const f=state.filters;
 let url=`/api/customers?page=${page}&limit=15`;
 if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
 const r=await api(url);
-if(r.ok){state.customers={data:r.data.customers||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+if(r.ok){state.customers={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0};}
 render();
 }
 
@@ -675,14 +675,14 @@ const f=state.filters;
 let url=`/api/parts?page=${page}&limit=15`;
 if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
 const r=await api(url);
-if(r.ok){state.parts={data:r.data.parts||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+if(r.ok){state.parts={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0};}
 render();
 }
 
 function renderParts(){
 const{data,page,total}=state.parts;
 const pages=Math.ceil(total/15)||1;
-const lowStock=data.filter(p=>p.stock<=p.min_stock);
+const lowStock=data.filter(p=>p.stock_qty<=p.min_stock_alert);
 return`<div class="topbar"><h1>Inventory</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewPartModal()">+ Add Part</button></div></div>
 ${lowStock.length?`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--danger);font-size:13px">⚠ ${lowStock.length} part(s) below minimum stock level</div>`:''}
 <div class="filter-bar">
@@ -691,9 +691,9 @@ ${lowStock.length?`<div style="background:rgba(239,68,68,.1);border:1px solid rg
 </div>
 <div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Model</th><th>Stock</th><th>Unit Price</th><th>Min Alert</th><th>Status</th><th>Actions</th></tr></thead><tbody>
 ${data.length?data.map(p=>`<tr>
-<td>#${p.id}</td><td>${p.name}</td><td>${p.model||'-'}</td><td>${p.stock}</td>
-<td>${formatCurrency(p.unit_price,p.currency)}</td><td>${p.min_stock}</td>
-<td><span class="badge ${p.stock<=p.min_stock?'badge-low':'badge-ok'}">${p.stock<=p.min_stock?'LOW STOCK':'OK'}</span></td>
+<td>#${p.id}</td><td>${p.name}</td><td>${p.model||'-'}</td><td>${p.stock_qty}</td>
+<td>${formatCurrency(p.unit_price,p.currency)}</td><td>${p.min_stock_alert}</td>
+<td><span class="badge ${p.stock_qty<=p.min_stock_alert?'badge-low':'badge-ok'}">${p.stock_qty<=p.min_stock_alert?'LOW STOCK':'OK'}</span></td>
 <td><div style="display:flex;gap:6px">
 <button class="btn btn-ghost btn-sm" onclick="showEditPartModal(${p.id})">Edit</button>
 <button class="btn btn-danger btn-sm" onclick="deletePart(${p.id})">Delete</button>
@@ -718,7 +718,7 @@ showModal(`<div class="modal-header"><h2>Add Part</h2><button class="modal-close
 <div class="form-row">
 <div class="form-group"><label>Unit Price *</label><input type="number" step="0.01" id="partPrice" required></div>
 <div class="form-group"><label>Currency</label><select id="partCurrency">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Part</button></div>
@@ -730,9 +730,9 @@ e.preventDefault();
 const r=await api('/api/parts',{method:'POST',body:JSON.stringify({
 name:document.getElementById('partName').value,
 model:document.getElementById('partModel').value||undefined,
-stock:document.getElementById('partStock').value,
-min_stock:document.getElementById('partMinStock').value,
-unit_price:document.getElementById('partPrice').value,
+stock_qty:parseInt(document.getElementById('partStock').value),
+min_stock_alert:parseInt(document.getElementById('partMinStock').value),
+unit_price:parseFloat(document.getElementById('partPrice').value),
 currency:document.getElementById('partCurrency').value
 })});
 if(r.ok){toast('Part added','success');hideModal();loadParts();}
@@ -750,8 +750,8 @@ showModal(`<div class="modal-header"><h2>Edit Part</h2><button class="modal-clos
 <div class="form-group"><label>Model</label><input type="text" id="partModel" value="${p.model||''}"></div>
 </div>
 <div class="form-row">
-<div class="form-group"><label>Stock *</label><input type="number" id="partStock" value="${p.stock}" required min="0"></div>
-<div class="form-group"><label>Min Alert *</label><input type="number" id="partMinStock" value="${p.min_stock}" required min="0"></div>
+<div class="form-group"><label>Stock *</label><input type="number" id="partStock" value="${p.stock_qty}" required min="0"></div>
+<div class="form-group"><label>Min Alert *</label><input type="number" id="partMinStock" value="${p.min_stock_alert}" required min="0"></div>
 </div>
 <div class="form-row">
 <div class="form-group"><label>Unit Price *</label><input type="number" step="0.01" id="partPrice" value="${p.unit_price}" required></div>
@@ -768,9 +768,9 @@ e.preventDefault();
 const r=await api(`/api/parts/${id}`,{method:'PUT',body:JSON.stringify({
 name:document.getElementById('partName').value,
 model:document.getElementById('partModel').value||undefined,
-stock:document.getElementById('partStock').value,
-min_stock:document.getElementById('partMinStock').value,
-unit_price:document.getElementById('partPrice').value,
+stock_qty:parseInt(document.getElementById('partStock').value),
+min_stock_alert:parseInt(document.getElementById('partMinStock').value),
+unit_price:parseFloat(document.getElementById('partPrice').value),
 currency:document.getElementById('partCurrency').value
 })});
 if(r.ok){toast('Part updated','success');hideModal();loadParts(state.parts.page);}
@@ -787,7 +787,7 @@ else toast(r.data.error||'Failed','error');
 // ===== SERVICES =====
 async function loadServices(page=1){
 const r=await api(`/api/services?page=${page}&limit=15`);
-if(r.ok){state.services={data:r.data.services||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+if(r.ok){state.services={data:Array.isArray(r.data)?r.data:r.data.items||[],page:1,total:(Array.isArray(r.data)?r.data.length:r.data.total)||0};}
 render();
 }
 
@@ -798,8 +798,8 @@ return`<div class="topbar"><h1>Services (Price List)</h1><div class="topbar-acti
 <div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Price</th><th>Currency</th><th>Active</th><th>Actions</th></tr></thead><tbody>
 ${data.length?data.map(s=>`<tr>
 <td>#${s.id}</td><td>${s.name}</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.description||'-'}</td>
-<td>${formatCurrency(s.default_price,s.currency)}</td><td>${s.currency||state.settings.currency}</td>
-<td><span class="badge ${s.is_active!==false?'badge-active':'badge-inactive'}">${s.is_active!==false?'Yes':'No'}</span></td>
+<td>${formatCurrency(s.default_price,s.currency)}</td><td>${s.currency||state.settings.default_currency}</td>
+<td><span class="badge ${s.active!==false?'badge-active':'badge-inactive'}">${s.active!==false?'Yes':'No'}</span></td>
 <td><div style="display:flex;gap:6px">
 <button class="btn btn-ghost btn-sm" onclick="showEditServiceModal(${s.id})">Edit</button>
 <button class="btn btn-danger btn-sm" onclick="deleteService(${s.id})">Delete</button>
@@ -818,7 +818,7 @@ showModal(`<div class="modal-header"><h2>Add Service</h2><button class="modal-cl
 <div class="form-row">
 <div class="form-group"><label>Default Price *</label><input type="number" step="0.01" id="svcPrice" required></div>
 <div class="form-group"><label>Currency</label><select id="svcCurrency">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="form-group"><label><input type="checkbox" id="svcActive" checked> Active</label></div>
@@ -830,10 +830,9 @@ async function createService(e){
 e.preventDefault();
 const r=await api('/api/services',{method:'POST',body:JSON.stringify({
 name:document.getElementById('svcName').value,
-description:document.getElementById('svcDesc').value||undefined,
-default_price:document.getElementById('svcPrice').value,
-currency:document.getElementById('svcCurrency').value,
-is_active:document.getElementById('svcActive').checked
+description:document.getElementById('svcDesc').value||'',
+default_price:parseFloat(document.getElementById('svcPrice').value)||0,
+currency:document.getElementById('svcCurrency').value
 })});
 if(r.ok){toast('Service added','success');hideModal();loadServices();}
 else toast(r.data.error||'Failed','error');
@@ -853,7 +852,7 @@ showModal(`<div class="modal-header"><h2>Edit Service</h2><button class="modal-c
 ${CURRENCIES.map(c=>`<option value="${c}"${c===s.currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
-<div class="form-group"><label><input type="checkbox" id="svcActive" ${s.is_active!==false?'checked':''}> Active</label></div>
+<div class="form-group"><label><input type="checkbox" id="svcActive" ${s.active!==false?'checked':''}> Active</label></div>
 <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
 </form></div>`);
 }
@@ -862,10 +861,10 @@ async function updateService(e,id){
 e.preventDefault();
 const r=await api(`/api/services/${id}`,{method:'PUT',body:JSON.stringify({
 name:document.getElementById('svcName').value,
-description:document.getElementById('svcDesc').value||undefined,
-default_price:document.getElementById('svcPrice').value,
+description:document.getElementById('svcDesc').value||'',
+default_price:parseFloat(document.getElementById('svcPrice').value)||0,
 currency:document.getElementById('svcCurrency').value,
-is_active:document.getElementById('svcActive').checked
+active:document.getElementById('svcActive').checked
 })});
 if(r.ok){toast('Service updated','success');hideModal();loadServices(state.services.page);}
 else toast(r.data.error||'Failed','error');
@@ -887,7 +886,7 @@ if(f.date_to)url+=`&date_to=${f.date_to}`;
 if(f.method)url+=`&method=${f.method}`;
 if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
 const r=await api(url);
-if(r.ok){state.payments={data:r.data.payments||r.data.data||[],page:r.data.page||page,total:r.data.total||0,summary:r.data.summary||{}};}
+if(r.ok){state.payments={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0,summary:r.data.summary||{}};}
 render();
 }
 
@@ -917,7 +916,7 @@ ${data.length?data.map(p=>`<tr>
 
 async function showNewPaymentModal(){
 const r=await api('/api/repairs?limit=100&status=received,diagnosed,waiting_parts,repairing,testing');
-const repairs=r.ok?(r.data.repairs||r.data.data||[]):[];
+const repairs=r.ok?(r.data.items||[]):[];
 showModal(`<div class="modal-header"><h2>Record Payment</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
 <div class="modal-body"><form onsubmit="createPayment(event)">
 <div class="form-group"><label>Repair *</label><select id="payRepair" required>
@@ -927,7 +926,7 @@ ${repairs.map(rp=>`<option value="${rp.id}">#${rp.id} - ${rp.customer_name||''} 
 <div class="form-row">
 <div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="payAmt" required></div>
 <div class="form-group"><label>Currency</label><select id="payCur">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="form-group"><label>Method *</label><select id="payMeth" required>
@@ -965,9 +964,10 @@ const f=state.filters;
 let url=`/api/expenses?page=${page}&limit=15`;
 if(f.date_from)url+=`&date_from=${f.date_from}`;
 if(f.date_to)url+=`&date_to=${f.date_to}`;
-if(f.category)url+=`&category=${encodeURIComponent(f.category)}`;
-const r=await api(url);
-if(r.ok){state.expenses={data:r.data.expenses||r.data.data||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
+if(f.category_id)url+=`&category_id=${f.category_id}`;
+const [r, catRes] = await Promise.all([api(url), api('/api/expenses/categories')]);
+if(r.ok){state.expenses={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
+if(catRes.ok){state.expense_categories=Array.isArray(catRes.data)?catRes.data:[];}
 render();
 }
 
@@ -979,13 +979,13 @@ return`<div class="topbar"><h1>Expenses</h1><div class="topbar-actions"><button 
 <div class="filter-bar">
 <input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value;loadExpenses()">
 <input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value;loadExpenses()">
-<select onchange="state.filters.category=this.value;loadExpenses()"><option value="">All Categories</option>
-${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${state.filters.category===c?' selected':''}>${c}</option>`).join('')}</select>
+<select onchange="state.filters.category_id=this.value;loadExpenses()"><option value="">All Categories</option>
+${(state.expense_categories||[]).map(c=>`<option value="${c.id}"${state.filters.category_id==c.id?' selected':''}>${c.name}</option>`).join('')}</select>
 <button class="btn btn-ghost btn-sm" onclick="state.filters={};loadExpenses()">Clear</button>
 </div>
 <div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Date</th><th>Category</th><th>Amount</th><th>Note</th><th>Created By</th><th>Actions</th></tr></thead><tbody>
 ${data.length?data.map(x=>`<tr>
-<td>#${x.id}</td><td>${formatDate(x.date||x.created_at)}</td><td>${x.category||'-'}</td>
+<td>#${x.id}</td><td>${formatDate(x.date||x.created_at)}</td><td>${x.category_name||'-'}</td>
 <td>${formatCurrency(x.amount,x.currency)}</td><td>${x.note||'-'}</td><td>${x.created_by_name||x.user_name||'-'}</td>
 <td><div style="display:flex;gap:6px">
 <button class="btn btn-ghost btn-sm" onclick="showEditExpenseModal(${x.id})">Edit</button>
@@ -998,17 +998,19 @@ ${data.length?data.map(x=>`<tr>
 }
 
 async function showNewExpenseModal(){
+const catRes=await api('/api/expenses/categories');
+const cats=catRes.ok?(Array.isArray(catRes.data)?catRes.data:[]):[];
 showModal(`<div class="modal-header"><h2>Add Expense</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
 <div class="modal-body"><form onsubmit="createExpense(event)">
 <div class="form-row">
 <div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="expAmt" required></div>
 <div class="form-group"><label>Currency</label><select id="expCur">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="form-group"><label>Category *</label><select id="expCat" required>
 <option value="">Select category</option>
-${EXPENSE_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
+${cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
 </select></div>
 <div class="form-group"><label>Date</label><input type="date" id="expDate" value="${new Date().toISOString().split('T')[0]}"></div>
 <div class="form-group"><label>Note</label><input type="text" id="expNote" placeholder="Description"></div>
@@ -1019,20 +1021,21 @@ ${EXPENSE_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
 async function createExpense(e){
 e.preventDefault();
 const r=await api('/api/expenses',{method:'POST',body:JSON.stringify({
-amount:document.getElementById('expAmt').value,
+amount:parseFloat(document.getElementById('expAmt').value),
 currency:document.getElementById('expCur').value,
-category:document.getElementById('expCat').value,
+category_id:parseInt(document.getElementById('expCat').value),
 date:document.getElementById('expDate').value||undefined,
 note:document.getElementById('expNote').value||undefined
 })});
 if(r.ok){toast('Expense added','success');hideModal();loadExpenses();}
-else toast(r.data.error||'Failed','error');
+else toast(r.data.detail||'Failed','error');
 }
 
 async function showEditExpenseModal(id){
-const r=await api(`/api/expenses/${id}`);
+const [r, catRes] = await Promise.all([api(`/api/expenses/${id}`), api('/api/expenses/categories')]);
 if(!r.ok)return toast('Failed','error');
 const x=r.data;
+const cats=catRes.ok?(Array.isArray(catRes.data)?catRes.data:[]):[];
 showModal(`<div class="modal-header"><h2>Edit Expense</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
 <div class="modal-body"><form onsubmit="updateExpense(event,${id})">
 <div class="form-row">
@@ -1043,7 +1046,7 @@ ${CURRENCIES.map(c=>`<option value="${c}"${c===x.currency?' selected':''}>${c}</
 </div>
 <div class="form-group"><label>Category *</label><select id="expCat" required>
 <option value="">Select</option>
-${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${c===x.category?' selected':''}>${c}</option>`).join('')}
+${cats.map(c=>`<option value="${c.id}"${c.id===x.category_id?' selected':''}>${c.name}</option>`).join('')}
 </select></div>
 <div class="form-group"><label>Date</label><input type="date" id="expDate" value="${(x.date||x.created_at||'').split('T')[0]}"></div>
 <div class="form-group"><label>Note</label><input type="text" id="expNote" value="${x.note||''}"></div>
@@ -1054,9 +1057,9 @@ ${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${c===x.category?' selected':''
 async function updateExpense(e,id){
 e.preventDefault();
 const r=await api(`/api/expenses/${id}`,{method:'PUT',body:JSON.stringify({
-amount:document.getElementById('expAmt').value,
+amount:parseFloat(document.getElementById('expAmt').value),
 currency:document.getElementById('expCur').value,
-category:document.getElementById('expCat').value,
+category_id:parseInt(document.getElementById('expCat').value),
 date:document.getElementById('expDate').value||undefined,
 note:document.getElementById('expNote').value||undefined
 })});
@@ -1078,7 +1081,7 @@ let url=`/api/daily-sales?page=${page}&limit=15`;
 if(f.date_from)url+=`&date_from=${f.date_from}`;
 if(f.date_to)url+=`&date_to=${f.date_to}`;
 const r=await api(url);
-if(r.ok){state.daily_sales={data:r.data.sales||r.data.data||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
+if(r.ok){state.daily_sales={data:r.data.items||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
 render();
 }
 
@@ -1112,7 +1115,7 @@ showModal(`<div class="modal-header"><h2>Add Sales Entry</h2><button class="moda
 <div class="form-row">
 <div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="saleAmt" required></div>
 <div class="form-group"><label>Currency</label><select id="saleCur">
-${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.default_currency?' selected':''}>${c}</option>`).join('')}
 </select></div>
 </div>
 <div class="form-group"><label>Category</label><select id="saleCat">
@@ -1236,7 +1239,7 @@ window.open(url,'_blank');
 // ===== STAFF =====
 async function loadStaff(page=1){
 const r=await api(`/api/staff?page=${page}&limit=15`);
-if(r.ok){state.staff={data:r.data.staff||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+if(r.ok){state.staff={data:Array.isArray(r.data)?r.data:r.data.items||[],page:1,total:(Array.isArray(r.data)?r.data.length:r.data.total)||0};}
 render();
 }
 
@@ -1248,11 +1251,11 @@ return`<div class="topbar"><h1>Staff</h1><div class="topbar-actions"><button cla
 ${data.length?data.map(s=>`<tr>
 <td>#${s.id}</td><td>${s.name}</td><td>${s.email||'-'}</td><td>${s.phone||'-'}</td>
 <td><span class="badge badge-received">${s.role||'staff'}</span></td>
-<td><span class="badge ${s.is_active!==false?'badge-active':'badge-inactive'}">${s.is_active!==false?'Active':'Inactive'}</span></td>
+<td><span class="badge ${s.active!==false?'badge-active':'badge-inactive'}">${s.active!==false?'Active':'Inactive'}</span></td>
 <td>${formatDate(s.created_at)}</td>
 <td><div style="display:flex;gap:6px">
 <button class="btn btn-ghost btn-sm" onclick="showEditStaffModal(${s.id})">Edit</button>
-<button class="btn btn-warning btn-sm" onclick="toggleStaffActive(${s.id},${s.is_active!==false})">${s.is_active!==false?'Deactivate':'Activate'}</button>
+<button class="btn btn-warning btn-sm" onclick="toggleStaffActive(${s.id},${s.active!==false})">${s.active!==false?'Deactivate':'Activate'}</button>
 </div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No staff found</td></tr>'}
 </tbody></table></div></div>
 <div class="pagination"><button ${page<=1?'disabled':''} onclick="loadStaff(${page-1})">Prev</button>
@@ -1325,7 +1328,7 @@ else toast(r.data.error||'Failed','error');
 async function toggleStaffActive(id,currentlyActive){
 const action=currentlyActive?'deactivate':'activate';
 if(!confirm(`${action} this staff member?`))return;
-const r=await api(`/api/staff/${id}`,{method:'PUT',body:JSON.stringify({is_active:!currentlyActive})});
+const r=await api(`/api/staff/${id}?active=${!currentlyActive}`,{method:'PUT'});
 if(r.ok){toast(`Staff ${action}d`,'success');loadStaff(state.staff.page);}
 else toast(r.data.error||'Failed','error');
 }
@@ -1343,13 +1346,12 @@ return`<div class="topbar"><h1>Settings</h1></div>
 <div class="card" style="max-width:600px">
 <form onsubmit="saveSettings(event)">
 <div class="form-group"><label>Shop Name</label><input type="text" id="setShopName" value="${s.shop_name||''}"></div>
-<div class="form-group"><label>Address</label><input type="text" id="setAddress" value="${s.address||''}"></div>
+<div class="form-group"><label>Address</label><input type="text" id="setAddress" value="${s.shop_address||''}"></div>
 <div class="form-row">
-<div class="form-group"><label>Phone</label><input type="text" id="setPhone" value="${s.phone||''}"></div>
-<div class="form-group"><label>Email</label><input type="email" id="setEmail" value="${s.email||''}"></div>
+<div class="form-group"><label>Phone</label><input type="text" id="setPhone" value="${s.shop_phone||''}"></div>
 </div>
 <div class="form-group"><label>Default Currency</label><select id="setCurrency">
-${CURRENCIES.map(c=>`<option value="${c}"${c===(s.currency||'USD')?' selected':''}>${c}</option>`).join('')}
+${CURRENCIES.map(c=>`<option value="${c}"${c===(s.default_currency||'USD')?' selected':''}>${c}</option>`).join('')}
 </select></div>
 <button type="submit" class="btn btn-primary">Save Settings</button>
 </form></div>`;
@@ -1359,10 +1361,9 @@ async function saveSettings(e){
 e.preventDefault();
 const r=await api('/api/settings',{method:'PUT',body:JSON.stringify({
 shop_name:document.getElementById('setShopName').value,
-address:document.getElementById('setAddress').value,
-phone:document.getElementById('setPhone').value,
-email:document.getElementById('setEmail').value,
-currency:document.getElementById('setCurrency').value
+shop_address:document.getElementById('setAddress').value,
+shop_phone:document.getElementById('setPhone').value,
+default_currency:document.getElementById('setCurrency').value
 })});
 if(r.ok){toast('Settings saved','success');await loadSettings();render();}
 else toast(r.data.error||'Failed','error');
