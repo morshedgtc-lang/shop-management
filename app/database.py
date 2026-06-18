@@ -3,10 +3,17 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import DATABASE_URL
 
 connect_args = {}
+engine_kwargs = {}
+
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    engine_kwargs["pool_pre_ping"] = True
+    if "sslmode" not in DATABASE_URL:
+        sep = "&" if "?" in DATABASE_URL else "?"
+        DATABASE_URL = DATABASE_URL + sep + "sslmode=require"
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(DATABASE_URL, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
