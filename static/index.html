@@ -225,13 +225,12 @@ async function handleLogin(e){
 e.preventDefault();
 const email=document.getElementById('loginEmail').value;
 const password=document.getElementById('loginPassword').value;
-document.getElementById('loginBtn').textContent='Signing in...';
-document.getElementById('loginBtn').disabled=true;
+const btn=document.getElementById('loginBtn');
+if(btn){btn.textContent='Signing in...';btn.disabled=true;}
 const r=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password})});
-if(r.ok){localStorage.setItem('token',r.data.token);state.user=r.data.user||{email};toast('Login successful','success');loadSettings();state.page='dashboard';render();}
-else{document.getElementById('loginError').textContent=r.data.error||'Invalid credentials';}
-document.getElementById('loginBtn').textContent='Sign In';
-document.getElementById('loginBtn').disabled=false;
+if(r.ok){localStorage.setItem('token',r.data.access_token);state.user=r.data.user||{email};toast('Login successful','success');state.page='dashboard';render();loadSettings();loadDashboard();}
+else{const err=document.getElementById('loginError');if(err)err.textContent=r.data.detail||'Invalid credentials';}
+if(btn){btn.textContent='Sign In';btn.disabled=false;}
 }
 
 function renderSidebar(){
