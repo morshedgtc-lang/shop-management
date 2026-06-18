@@ -1,0 +1,11 @@
+node_modules/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+shop.db
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/.packages
+flutter_app/.flutter-plugins

@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0f172a;--card:#1e293b;--card-hover:#273548;--border:#334155;
+--text:#e2e8f0;--text-muted:#94a3b8;--primary:#3b82f6;--primary-hover:#2563eb;
+--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#06b6d4;
+--purple:#a855f7;--orange:#f97316;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--primary);text-decoration:none}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+input,select,textarea{font-family:inherit;outline:none}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#475569}
+
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;backdrop-filter:blur(10px)}
+.login-card h1{text-align:center;margin-bottom:8px;font-size:24px;font-weight:700}
+.login-card p{text-align:center;color:var(--text-muted);margin-bottom:30px;font-size:14px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;margin-bottom:6px;font-size:13px;font-weight:500;color:var(--text-muted)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.btn{padding:10px 20px;border-radius:8px;font-size:14px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{opacity:.9}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.9}
+.btn-warning{background:var(--warning);color:#000}.btn-warning:hover{opacity:.9}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}.btn-ghost:hover{background:var(--card);color:var(--text)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-full{width:100%;justify-content:center}
+.error-msg{color:var(--danger);font-size:13px;margin-top:10px;text-align:center;min-height:20px}
+
+.app{display:flex;min-height:100vh}
+.sidebar{width:260px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100;transition:transform .3s}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border)}
+.sidebar-header h2{font-size:18px;font-weight:700}
+.sidebar-header p{font-size:12px;color:var(--text-muted);margin-top:2px}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;color:var(--text-muted);font-size:14px;cursor:pointer;transition:all .2s;margin-bottom:2px}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item svg{width:18px;height:18px;flex-shrink:0}
+.nav-section{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:16px 14px 6px;font-weight:600}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.main{margin-left:260px;flex:1;padding:24px;min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.topbar h1{font-size:24px;font-weight:700}
+.topbar-actions{display:flex;align-items:center;gap:12px}
+.menu-toggle{display:none;background:none;border:none;color:var(--text);font-size:24px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;backdrop-filter:blur(10px)}
+.stat-card .stat-label{font-size:13px;color:var(--text-muted);margin-bottom:8px}
+.stat-card .stat-value{font-size:28px;font-weight:700}
+.stat-card .stat-sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.stat-card.blue .stat-value{color:var(--primary)}
+.stat-card.green .stat-value{color:var(--success)}
+.stat-card.yellow .stat-value{color:var(--warning)}
+.stat-card.red .stat-value{color:var(--danger)}
+.stat-card.purple .stat-value{color:var(--purple)}
+.stat-card.cyan .stat-value{color:var(--info)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;backdrop-filter:blur(10px);margin-bottom:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-header h3{font-size:16px;font-weight:600}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 16px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
+th{color:var(--text-muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:rgba(255,255,255,.02)}
+.badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.badge-received{background:rgba(59,130,246,.15);color:var(--primary)}
+.badge-diagnosed{background:rgba(245,158,11,.15);color:var(--warning)}
+.badge-waiting_parts{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-repairing{background:rgba(168,85,247,.15);color:var(--purple)}
+.badge-testing{background:rgba(6,182,212,.15);color:var(--info)}
+.badge-delivered{background:rgba(34,197,94,.15);color:var(--success)}
+.badge-ok{background:rgba(34,197,94,.15);color:var(--success)}
+.badge-low{background:rgba(239,68,68,.15);color:var(--danger)}
+.badge-active{background:rgba(34,197,94,.15);color:var(--success)}
+.badge-inactive{background:rgba(239,68,68,.15);color:var(--danger)}
+.filter-bar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;align-items:center}
+.filter-bar input,.filter-bar select{padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--primary)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:18px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--text-muted);font-size:24px;cursor:pointer;padding:4px}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px}
+.toast-container{position:fixed;top:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;animation:slideIn .3s;display:flex;align-items:center;gap:10px;min-width:280px}
+.toast.success{background:rgba(34,197,94,.9);color:#fff}
+.toast.error{background:rgba(239,68,68,.9);color:#fff}
+.toast.info{background:rgba(59,130,246,.9);color:#fff}
+@keyframes slideIn{from{opacity:0;transform:translateX(100px)}to{opacity:1;transform:translateX(0)}}
+.loading{display:flex;align-items:center;justify-content:center;padding:40px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:var(--text-muted)}
+.empty svg{width:48px;height:48px;margin-bottom:12px;opacity:.5}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px}
+.pagination button{padding:6px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:13px}
+.pagination button:hover{border-color:var(--primary)}
+.pagination button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detail-item{padding:12px;background:var(--bg);border-radius:8px}
+.detail-item .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.detail-item .value{font-size:14px;font-weight:500}
+.detail-full{grid-column:1/-1}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%)}
+.sidebar.open{transform:translateX(0)}
+.sidebar-overlay.open{display:block}
+.main{margin-left:0}
+.menu-toggle{display:block}
+.stats-grid{grid-template-columns:1fr 1fr}
+.form-row{grid-template-columns:1fr}
+.detail-grid{grid-template-columns:1fr}
+.filter-bar{flex-direction:column;align-items:stretch}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toastContainer"></div>
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal" id="modalContent"></div>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<script>
+const ICONS={
+dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+repairs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+customers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>',
+inventory:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+services:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
+payments:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+expenses:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+daily:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+reports:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+staff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>',
+logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
+};
+
+const STATUSES=['received','diagnosed','waiting_parts','repairing','testing','delivered'];
+const STATUS_COLORS={received:'badge-received',diagnosed:'badge-diagnosed',waiting_parts:'badge-waiting_parts',repairing:'badge-repairing',testing:'badge-testing',delivered:'badge-delivered'};
+const CURRENCIES=['USD','EUR','GBP','NGN','KES','GHS','ZAR','INR','PKR','PHP','IDR','MYR','THB','VND','BDT','LKR','NPR','MMK'];
+const EXPENSE_CATEGORIES=['Rent','Utilities','Supplies','Equipment','Transport','Marketing','Maintenance','Other'];
+const PAYMENT_METHODS=['Cash','Card','Bank Transfer','Mobile Money','Online','Other'];
+
+let state={page:'dashboard',user:null,settings:{shop_name:'Shop Management',currency:'USD'},repairs:{data:[],page:1,total:0},customers:{data:[],page:1,total:0},parts:{data:[],page:1,total:0},services:{data:[],page:1,total:0},payments:{data:[],page:1,total:0},expenses:{data:[],page:1,total:0},daily_sales:{data:[],page:1,total:0},staff:{data:[],page:1,total:0},dashboard:{},filters:{}};
+
+async function api(url,opts={}){
+const token=localStorage.getItem('token');
+opts.headers={'Content-Type':'application/json',...opts.headers};
+if(token)opts.headers['Authorization']='Bearer '+token;
+try{
+const res=await fetch(url,opts);
+const data=await res.json();
+if(res.status===401){localStorage.removeItem('token');state.user=null;render();return{ok:false,status:401,data};}
+return{ok:res.ok,status:res.status,data};
+}catch(e){return{ok:false,status:0,data:{error:'Network error'}};}
+}
+
+function toast(msg,type='info'){
+const c=document.getElementById('toastContainer');
+const t=document.createElement('div');
+t.className='toast '+type;
+t.textContent=msg;
+c.appendChild(t);
+setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3000);
+}
+
+function showModal(html){
+const o=document.getElementById('modalOverlay');
+const m=document.getElementById('modalContent');
+m.innerHTML=html;
+o.classList.add('active');
+}
+function hideModal(){document.getElementById('modalOverlay').classList.remove('active');}
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
+
+function toggleSidebar(){
+document.querySelector('.sidebar').classList.toggle('open');
+document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function setPage(page){state.page=page;state.filters={};render();document.querySelector('.sidebar')?.classList.remove('open');document.getElementById('sidebarOverlay')?.classList.remove('open');}
+
+function formatCurrency(amt,cur){return (cur||state.settings.currency)+' '+Number(amt||0).toFixed(2);}
+function formatDate(d){if(!d)return'-';return new Date(d).toLocaleDateString();}
+function formatDateTime(d){if(!d)return'-';return new Date(d).toLocaleString();}
+
+function renderLogin(){
+return`<div class="login-page"><div class="login-card">
+<h1>${state.settings.shop_name||'Shop Management'}</h1>
+<p>Admin Panel Login</p>
+<form onsubmit="handleLogin(event)">
+<div class="form-group"><label>Email</label><input type="email" id="loginEmail" required placeholder="admin@shop.com"></div>
+<div class="form-group"><label>Password</label><input type="password" id="loginPassword" required placeholder="Password"></div>
+<button type="submit" class="btn btn-primary btn-full" id="loginBtn">Sign In</button>
+<div class="error-msg" id="loginError"></div>
+</form></div></div>`;
+}
+
+async function handleLogin(e){
+e.preventDefault();
+const email=document.getElementById('loginEmail').value;
+const password=document.getElementById('loginPassword').value;
+document.getElementById('loginBtn').textContent='Signing in...';
+document.getElementById('loginBtn').disabled=true;
+const r=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email,password})});
+if(r.ok){localStorage.setItem('token',r.data.token);state.user=r.data.user||{email};toast('Login successful','success');loadSettings();state.page='dashboard';render();}
+else{document.getElementById('loginError').textContent=r.data.error||'Invalid credentials';}
+document.getElementById('loginBtn').textContent='Sign In';
+document.getElementById('loginBtn').disabled=false;
+}
+
+function renderSidebar(){
+const navs=[
+{id:'dashboard',icon:'dashboard',label:'Dashboard'},
+{id:'repairs',icon:'repairs',label:'Repairs'},
+{id:'customers',icon:'customers',label:'Customers'},
+{id:'inventory',icon:'inventory',label:'Inventory'},
+{id:'services',icon:'services',label:'Services'},
+{id:'payments',icon:'payments',label:'Payments'},
+{id:'expenses',icon:'expenses',label:'Expenses'},
+{id:'daily',icon:'daily',label:'Daily Sales'},
+{id:'reports',icon:'reports',label:'Reports'},
+];
+const adminNavs=[
+{id:'staff',icon:'staff',label:'Staff'},
+{id:'settings',icon:'settings',label:'Settings'},
+];
+return`<div class="sidebar" id="sidebar">
+<div class="sidebar-header"><h2>${state.settings.shop_name||'Shop Management'}</h2><p>Admin Panel</p></div>
+<nav class="sidebar-nav">
+${navs.map(n=>`<div class="nav-item${state.page===n.id?' active':''}" onclick="setPage('${n.id}')">${ICONS[n.icon]}${n.label}</div>`).join('')}
+<div class="nav-section">Administration</div>
+${adminNavs.map(n=>`<div class="nav-item${state.page===n.id?' active':''}" onclick="setPage('${n.id}')">${ICONS[n.icon]}${n.label}</div>`).join('')}
+</nav>
+<div class="sidebar-footer">
+<div class="nav-item" onclick="handleLogout()">${ICONS.logout}Logout</div>
+</div></div>`;
+}
+
+async function handleLogout(){
+localStorage.removeItem('token');
+state.user=null;
+state.page='dashboard';
+render();
+toast('Logged out','info');
+}
+
+async function loadSettings(){
+const r=await api('/api/settings');
+if(r.ok){state.settings={...state.settings,...r.data};document.title=state.settings.shop_name||'Shop Management';}
+}
+
+// ===== DASHBOARD =====
+async function loadDashboard(){
+const r=await api('/api/dashboard');
+if(r.ok){state.dashboard=r.data;}
+render();
+}
+
+function renderDashboard(){
+const d=state.dashboard;
+return`<div class="topbar"><h1>Dashboard</h1><div class="topbar-actions"><button class="btn btn-ghost" onclick="loadDashboard()">Refresh</button></div></div>
+<div class="stats-grid">
+<div class="stat-card blue"><div class="stat-label">Today's Repairs</div><div class="stat-value">${d.today_repairs||0}</div><div class="stat-sub">Total received today</div></div>
+<div class="stat-card yellow"><div class="stat-label">Pending</div><div class="stat-value">${d.pending||0}</div><div class="stat-sub">Awaiting action</div></div>
+<div class="stat-card purple"><div class="stat-label">In Progress</div><div class="stat-value">${d.in_progress||0}</div><div class="stat-sub">Currently being worked on</div></div>
+<div class="stat-card green"><div class="stat-label">Completed Today</div><div class="stat-value">${d.completed_today||0}</div><div class="stat-sub">Delivered today</div></div>
+<div class="stat-card green"><div class="stat-label">Today's Revenue</div><div class="stat-value">${formatCurrency(d.today_revenue)}</div><div class="stat-sub">Sales + Repair payments</div></div>
+<div class="stat-card red"><div class="stat-label">Today's Expenses</div><div class="stat-value">${formatCurrency(d.today_expenses)}</div><div class="stat-sub">Total spent today</div></div>
+<div class="stat-card cyan"><div class="stat-label">Net Profit</div><div class="stat-value">${formatCurrency(d.net_profit)}</div><div class="stat-sub">Revenue - Expenses</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div class="card"><div class="card-header"><h3>Recent Repairs</h3></div>
+${(d.recent_repairs||[]).length?`<table><thead><tr><th>ID</th><th>Customer</th><th>Model</th><th>Status</th></tr></thead><tbody>
+${(d.recent_repairs||[]).map(r=>`<tr><td>#${r.id}</td><td>${r.customer_name||'-'}</td><td>${r.model||'-'}</td><td><span class="badge ${STATUS_COLORS[r.status]||''}">${r.status}</span></td></tr>`).join('')}
+</tbody></table>`:'<div class="empty">No recent repairs</div>'}
+</div>
+<div class="card"><div class="card-header"><h3>Low Stock Alerts</h3></div>
+${(d.low_stock||[]).length?`<table><thead><tr><th>Part</th><th>Model</th><th>Stock</th><th>Min</th></tr></thead><tbody>
+${(d.low_stock||[]).map(p=>`<tr><td>${p.name}</td><td>${p.model||'-'}</td><td style="color:var(--danger)">${p.stock}</td><td>${p.min_stock}</td></tr>`).join('')}
+</tbody></table>`:'<div class="empty">All parts well stocked</div>'}
+</div></div>`;
+}
+
+// ===== REPAIRS =====
+async function loadRepairs(page=1){
+const f=state.filters;
+let url=`/api/repairs?page=${page}&limit=15`;
+if(f.status)url+=`&status=${f.status}`;
+if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
+if(f.date_from)url+=`&date_from=${f.date_from}`;
+if(f.date_to)url+=`&date_to=${f.date_to}`;
+const r=await api(url);
+if(r.ok){state.repairs={data:r.data.repairs||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+render();
+}
+
+function renderRepairs(){
+const{data,page,total}=state.repairs;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Repairs</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewRepairModal()">+ New Repair</button></div></div>
+<div class="filter-bar">
+<select onchange="state.filters.status=this.value;loadRepairs()"><option value="">All Status</option>
+${STATUSES.map(s=>`<option value="${s}"${state.filters.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}</select>
+<input type="text" placeholder="Search model or customer..." value="${state.filters.search||''}" onkeyup="if(event.key==='Enter'){state.filters.search=this.value;loadRepairs()}">
+<input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value;loadRepairs()">
+<input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value;loadRepairs()">
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadRepairs()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Customer</th><th>Model</th><th>Issues</th><th>Status</th><th>Assigned</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(r=>`<tr>
+<td>#${r.id}</td><td>${r.customer_name||'-'}</td><td>${r.model||'-'}</td>
+<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.issues||'-'}</td>
+<td><span class="badge ${STATUS_COLORS[r.status]||''}">${(r.status||'').replace('_',' ')}</span></td>
+<td>${r.assigned_name||'-'}</td><td>${formatDate(r.created_at)}</td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showRepairDetail(${r.id})">View</button>
+<select class="btn btn-ghost btn-sm" onchange="updateRepairStatus(${r.id},this.value)" style="padding:4px 8px;font-size:11px">
+<option value="">Status</option>
+${STATUSES.map(s=>`<option value="${s}">${s.replace('_',' ')}</option>`).join('')}
+</select>
+</div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No repairs found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadRepairs(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadRepairs(${page+1})">Next</button></div>`;
+}
+
+async function updateRepairStatus(id,status){
+if(!status)return;
+const r=await api(`/api/repairs/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});
+if(r.ok){toast('Status updated','success');loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed to update status','error');
+}
+
+async function showRepairDetail(id){
+const r=await api(`/api/repairs/${id}`);
+if(!r.ok)return toast('Failed to load repair','error');
+const rp=r.data;
+const parts=rp.parts_used||rp.parts||[];
+const pays=rp.payments||[];
+const totalParts=parts.reduce((s,p)=>s+Number(p.cost||p.unit_price||0)*Number(p.quantity||1),0);
+const totalPaid=pays.reduce((s,p)=>s+Number(p.amount||0),0);
+const balance=Number(rp.estimated_cost||rp.total_cost||0)-totalPaid;
+
+showModal(`<div class="modal-header"><h2>Repair #${rp.id}</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body">
+<div class="detail-grid">
+<div class="detail-item"><div class="label">Customer</div><div class="value">${rp.customer_name||'-'}</div></div>
+<div class="detail-item"><div class="label">Model</div><div class="value">${rp.model||'-'}</div></div>
+<div class="detail-item"><div class="label">IMEI</div><div class="value">${rp.imei||'-'}</div></div>
+<div class="detail-item"><div class="label">Status</div><div class="value"><span class="badge ${STATUS_COLORS[rp.status]||''}">${(rp.status||'').replace('_',' ')}</span></div></div>
+<div class="detail-item"><div class="label">Assigned To</div><div class="value">${rp.assigned_name||'Unassigned'}</div></div>
+<div class="detail-item"><div class="label">Date</div><div class="value">${formatDateTime(rp.created_at)}</div></div>
+<div class="detail-item detail-full"><div class="label">Issues</div><div class="value">${rp.issues||'-'}</div></div>
+<div class="detail-item detail-full"><div class="label">Notes</div><div class="value">${rp.notes||'-'}</div></div>
+<div class="detail-item"><div class="label">Estimated Cost</div><div class="value">${formatCurrency(rp.estimated_cost)}</div></div>
+<div class="detail-item"><div class="label">Total Cost</div><div class="value">${formatCurrency(rp.total_cost)}</div></div>
+</div>
+
+<div style="margin-top:20px">
+<div class="card-header"><h3>Parts Used</h3><button class="btn btn-ghost btn-sm" onclick="showAddPartUsedModal(${rp.id})">+ Add Part</button></div>
+<table><thead><tr><th>Part</th><th>Qty</th><th>Cost</th><th>Action</th></tr></thead><tbody>
+${parts.length?parts.map(p=>`<tr><td>${p.name||p.part_name||'-'}</td><td>${p.quantity||1}</td><td>${formatCurrency(p.cost||p.unit_price)}</td>
+<td><button class="btn btn-danger btn-sm" onclick="removePartUsed(${rp.id},${p.id})">Remove</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty">No parts added</td></tr>'}
+</tbody></table></div>
+
+<div style="margin-top:20px">
+<div class="card-header"><h3>Payments</h3><button class="btn btn-ghost btn-sm" onclick="showAddPaymentModal(${rp.id})">+ Add Payment</button></div>
+<table><thead><tr><th>Amount</th><th>Method</th><th>Date</th><th>Action</th></tr></thead><tbody>
+${pays.length?pays.map(p=>`<tr><td>${formatCurrency(p.amount,p.currency)}</td><td>${p.method||'-'}</td><td>${formatDate(p.created_at||p.date)}</td>
+<td><button class="btn btn-danger btn-sm" onclick="deletePayment(${p.id})">Delete</button></td></tr>`).join(''):'<tr><td colspan="4" class="empty">No payments recorded</td></tr>'}
+</tbody></table></div>
+
+<div style="margin-top:16px;padding:16px;background:var(--bg);border-radius:8px">
+<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text-muted)">Total Cost:</span><span>${formatCurrency(rp.total_cost||rp.estimated_cost)}</span></div>
+<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text-muted)">Total Paid:</span><span style="color:var(--success)">${formatCurrency(totalPaid)}</span></div>
+<div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance Due:</span><span style="color:${balance>0?'var(--danger)':'var(--success)'}">${formatCurrency(balance)}</span></div>
+</div>
+
+<div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+${rp.status!=='delivered'?`<button class="btn btn-primary" onclick="advanceRepairStatus(${rp.id},'${rp.status}')">Advance Status</button>`:''}
+<button class="btn btn-ghost" onclick="hideModal()">Close</button>
+</div>
+</div>`);
+}
+
+async function advanceRepairStatus(id,currentStatus){
+const idx=STATUSES.indexOf(currentStatus);
+if(idx>=STATUSES.length-1)return toast('Already at final status','info');
+const next=STATUSES[idx+1];
+const r=await api(`/api/repairs/${id}/status`,{method:'PATCH',body:JSON.stringify({status:next})});
+if(r.ok){toast(`Status updated to ${next}`,'success');hideModal();loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function removePartUsed(repairId,partId){
+if(!confirm('Remove this part?'))return;
+const r=await api(`/api/repairs/${repairId}/parts/${partId}`,{method:'DELETE'});
+if(r.ok){toast('Part removed','success');showRepairDetail(repairId);loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deletePayment(id){
+if(!confirm('Delete this payment?'))return;
+const r=await api(`/api/payments/${id}`,{method:'DELETE'});
+if(r.ok){toast('Payment deleted','success');hideModal();loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showNewRepairModal(){
+const[customersRes,staffRes]=await Promise.all([api('/api/customers?limit=100'),api('/api/staff?limit=100')]);
+const customers=customersRes.ok?(customersRes.data.customers||customersRes.data.data||[]):[];
+const staff=staffRes.ok?(staffRes.data.staff||staffRes.data.data||[]):[];
+
+showModal(`<div class="modal-header"><h2>New Repair</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createRepair(event)">
+<div class="form-group"><label>Customer</label><select id="repairCustomer" required>
+<option value="">Select customer</option>
+${customers.map(c=>`<option value="${c.id}">${c.name} - ${c.phone||''}</option>`).join('')}
+</select><button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="showQuickCustomerModal()">+ New Customer</button></div>
+<div class="form-group"><label>Model *</label><input type="text" id="repairModel" required placeholder="e.g. iPhone 14 Pro"></div>
+<div class="form-group"><label>Issues *</label><textarea id="repairIssues" required placeholder="Describe the problems"></textarea></div>
+<div class="form-row">
+<div class="form-group"><label>IMEI</label><input type="text" id="repairImei" placeholder="Optional"></div>
+<div class="form-group"><label>Estimated Cost</label><input type="number" step="0.01" id="repairCost" placeholder="0.00"></div>
+</div>
+<div class="form-group"><label>Assign To</label><select id="repairAssigned">
+<option value="">Unassigned</option>
+${staff.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Notes</label><textarea id="repairNotes" placeholder="Optional notes"></textarea></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Create Repair</button></div>
+</form></div>`);
+}
+
+async function createRepair(e){
+e.preventDefault();
+const r=await api('/api/repairs',{method:'POST',body:JSON.stringify({
+customer_id:document.getElementById('repairCustomer').value,
+model:document.getElementById('repairModel').value,
+issues:document.getElementById('repairIssues').value,
+imei:document.getElementById('repairImei').value||undefined,
+estimated_cost:document.getElementById('repairCost').value||undefined,
+assigned_to:document.getElementById('repairAssigned').value||undefined,
+notes:document.getElementById('repairNotes').value||undefined
+})});
+if(r.ok){toast('Repair created','success');hideModal();loadRepairs();}
+else toast(r.data.error||'Failed to create repair','error');
+}
+
+async function showQuickCustomerModal(){
+showModal(`<div class="modal-header"><h2>New Customer</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="quickCreateCustomer(event)">
+<div class="form-group"><label>Name *</label><input type="text" id="qcName" required></div>
+<div class="form-row">
+<div class="form-group"><label>Phone</label><input type="text" id="qcPhone"></div>
+<div class="form-group"><label>Email</label><input type="email" id="qcEmail"></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Create</button></div>
+</form></div>`);
+}
+
+async function quickCreateCustomer(e){
+e.preventDefault();
+const r=await api('/api/customers',{method:'POST',body:JSON.stringify({
+name:document.getElementById('qcName').value,
+phone:document.getElementById('qcPhone').value||undefined,
+email:document.getElementById('qcEmail').value||undefined
+})});
+if(r.ok){toast('Customer created','success');hideModal();showNewRepairModal();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showAddPartUsedModal(repairId){
+const r=await api('/api/parts?limit=100');
+const parts=r.ok?(r.data.parts||r.data.data||[]):[];
+showModal(`<div class="modal-header"><h2>Add Part</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="addPartUsed(event,${repairId})">
+<div class="form-group"><label>Part *</label><select id="addPartId" required>
+<option value="">Select part</option>
+${parts.map(p=>`<option value="${p.id}">${p.name} (${p.model||'any'}) - Stock: ${p.stock}</option>`).join('')}
+</select></div>
+<div class="form-row">
+<div class="form-group"><label>Quantity</label><input type="number" id="addPartQty" value="1" min="1"></div>
+<div class="form-group"><label>Cost</label><input type="number" step="0.01" id="addPartCost" placeholder="0.00"></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add</button></div>
+</form></div>`);
+}
+
+async function addPartUsed(e,repairId){
+e.preventDefault();
+const r=await api(`/api/repairs/${repairId}/parts`,{method:'POST',body:JSON.stringify({
+part_id:document.getElementById('addPartId').value,
+quantity:document.getElementById('addPartQty').value,
+cost:document.getElementById('addPartCost').value||undefined
+})});
+if(r.ok){toast('Part added','success');hideModal();showRepairDetail(repairId);loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showAddPaymentModal(repairId){
+showModal(`<div class="modal-header"><h2>Add Payment</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="addPayment(event,${repairId})">
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="payAmount" required></div>
+<div class="form-group"><label>Currency</label><select id="payCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Method *</label><select id="payMethod" required>
+<option value="">Select method</option>
+${PAYMENT_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Notes</label><input type="text" id="payNotes" placeholder="Optional"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Record Payment</button></div>
+</form></div>`);
+}
+
+async function addPayment(e,repairId){
+e.preventDefault();
+const r=await api('/api/payments',{method:'POST',body:JSON.stringify({
+repair_id:repairId,
+amount:document.getElementById('payAmount').value,
+currency:document.getElementById('payCurrency').value,
+method:document.getElementById('payMethod').value,
+notes:document.getElementById('payNotes').value||undefined
+})});
+if(r.ok){toast('Payment recorded','success');hideModal();showRepairDetail(repairId);loadRepairs(state.repairs.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== CUSTOMERS =====
+async function loadCustomers(page=1){
+const f=state.filters;
+let url=`/api/customers?page=${page}&limit=15`;
+if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
+const r=await api(url);
+if(r.ok){state.customers={data:r.data.customers||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+render();
+}
+
+function renderCustomers(){
+const{data,page,total}=state.customers;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Customers</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewCustomerModal()">+ New Customer</button></div></div>
+<div class="filter-bar">
+<input type="text" placeholder="Search name or phone..." value="${state.filters.search||''}" onkeyup="if(event.key==='Enter'){state.filters.search=this.value;loadCustomers()}">
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadCustomers()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Repairs</th><th>Created</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(c=>`<tr>
+<td>#${c.id}</td><td>${c.name}</td><td>${c.phone||'-'}</td><td>${c.email||'-'}</td>
+<td>${c.repairs_count||c.repair_count||0}</td><td>${formatDate(c.created_at)}</td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showCustomerDetail(${c.id})">History</button>
+<button class="btn btn-ghost btn-sm" onclick="showEditCustomerModal(${c.id})">Edit</button>
+<button class="btn btn-danger btn-sm" onclick="deleteCustomer(${c.id})">Delete</button>
+</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No customers found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadCustomers(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadCustomers(${page+1})">Next</button></div>`;
+}
+
+async function showNewCustomerModal(){
+showModal(`<div class="modal-header"><h2>New Customer</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createCustomer(event)">
+<div class="form-group"><label>Name *</label><input type="text" id="custName" required></div>
+<div class="form-row">
+<div class="form-group"><label>Phone</label><input type="text" id="custPhone"></div>
+<div class="form-group"><label>Email</label><input type="email" id="custEmail"></div>
+</div>
+<div class="form-group"><label>Address</label><input type="text" id="custAddress"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Create</button></div>
+</form></div>`);
+}
+
+async function createCustomer(e){
+e.preventDefault();
+const r=await api('/api/customers',{method:'POST',body:JSON.stringify({
+name:document.getElementById('custName').value,
+phone:document.getElementById('custPhone').value||undefined,
+email:document.getElementById('custEmail').value||undefined,
+address:document.getElementById('custAddress').value||undefined
+})});
+if(r.ok){toast('Customer created','success');hideModal();loadCustomers();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditCustomerModal(id){
+const r=await api(`/api/customers/${id}`);
+if(!r.ok)return toast('Failed to load customer','error');
+const c=r.data;
+showModal(`<div class="modal-header"><h2>Edit Customer</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updateCustomer(event,${id})">
+<div class="form-group"><label>Name *</label><input type="text" id="custName" value="${c.name}" required></div>
+<div class="form-row">
+<div class="form-group"><label>Phone</label><input type="text" id="custPhone" value="${c.phone||''}"></div>
+<div class="form-group"><label>Email</label><input type="email" id="custEmail" value="${c.email||''}"></div>
+</div>
+<div class="form-group"><label>Address</label><input type="text" id="custAddress" value="${c.address||''}"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updateCustomer(e,id){
+e.preventDefault();
+const r=await api(`/api/customers/${id}`,{method:'PUT',body:JSON.stringify({
+name:document.getElementById('custName').value,
+phone:document.getElementById('custPhone').value||undefined,
+email:document.getElementById('custEmail').value||undefined,
+address:document.getElementById('custAddress').value||undefined
+})});
+if(r.ok){toast('Customer updated','success');hideModal();loadCustomers(state.customers.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deleteCustomer(id){
+if(!confirm('Delete this customer?'))return;
+const r=await api(`/api/customers/${id}`,{method:'DELETE'});
+if(r.ok){toast('Customer deleted','success');loadCustomers(state.customers.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showCustomerDetail(id){
+const r=await api(`/api/customers/${id}`);
+if(!r.ok)return toast('Failed','error');
+const c=r.data;
+const repairs=c.repairs||[];
+showModal(`<div class="modal-header"><h2>${c.name}</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body">
+<div class="detail-grid">
+<div class="detail-item"><div class="label">Phone</div><div class="value">${c.phone||'-'}</div></div>
+<div class="detail-item"><div class="label">Email</div><div class="value">${c.email||'-'}</div></div>
+<div class="detail-item detail-full"><div class="label">Address</div><div class="value">${c.address||'-'}</div></div>
+</div>
+<h3 style="margin:20px 0 12px;font-size:16px">Repair History</h3>
+<table><thead><tr><th>ID</th><th>Model</th><th>Status</th><th>Cost</th><th>Date</th></tr></thead><tbody>
+${repairs.length?repairs.map(rp=>`<tr><td>#${rp.id}</td><td>${rp.model||'-'}</td>
+<td><span class="badge ${STATUS_COLORS[rp.status]||''}">${rp.status}</span></td>
+<td>${formatCurrency(rp.estimated_cost||rp.total_cost)}</td><td>${formatDate(rp.created_at)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No repairs</td></tr>'}
+</tbody></table>
+</div>`);
+}
+
+// ===== INVENTORY =====
+async function loadParts(page=1){
+const f=state.filters;
+let url=`/api/parts?page=${page}&limit=15`;
+if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
+const r=await api(url);
+if(r.ok){state.parts={data:r.data.parts||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+render();
+}
+
+function renderParts(){
+const{data,page,total}=state.parts;
+const pages=Math.ceil(total/15)||1;
+const lowStock=data.filter(p=>p.stock<=p.min_stock);
+return`<div class="topbar"><h1>Inventory</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewPartModal()">+ Add Part</button></div></div>
+${lowStock.length?`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--danger);font-size:13px">⚠ ${lowStock.length} part(s) below minimum stock level</div>`:''}
+<div class="filter-bar">
+<input type="text" placeholder="Search by name or model..." value="${state.filters.search||''}" onkeyup="if(event.key==='Enter'){state.filters.search=this.value;loadParts()}">
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadParts()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Model</th><th>Stock</th><th>Unit Price</th><th>Min Alert</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(p=>`<tr>
+<td>#${p.id}</td><td>${p.name}</td><td>${p.model||'-'}</td><td>${p.stock}</td>
+<td>${formatCurrency(p.unit_price,p.currency)}</td><td>${p.min_stock}</td>
+<td><span class="badge ${p.stock<=p.min_stock?'badge-low':'badge-ok'}">${p.stock<=p.min_stock?'LOW STOCK':'OK'}</span></td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showEditPartModal(${p.id})">Edit</button>
+<button class="btn btn-danger btn-sm" onclick="deletePart(${p.id})">Delete</button>
+</div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No parts found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadParts(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadParts(${page+1})">Next</button></div>`;
+}
+
+async function showNewPartModal(){
+showModal(`<div class="modal-header"><h2>Add Part</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createPart(event)">
+<div class="form-row">
+<div class="form-group"><label>Name *</label><input type="text" id="partName" required></div>
+<div class="form-group"><label>Model</label><input type="text" id="partModel" placeholder="e.g. iPhone 14"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>Stock *</label><input type="number" id="partStock" required min="0"></div>
+<div class="form-group"><label>Min Alert *</label><input type="number" id="partMinStock" required min="0" value="5"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>Unit Price *</label><input type="number" step="0.01" id="partPrice" required></div>
+<div class="form-group"><label>Currency</label><select id="partCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Part</button></div>
+</form></div>`);
+}
+
+async function createPart(e){
+e.preventDefault();
+const r=await api('/api/parts',{method:'POST',body:JSON.stringify({
+name:document.getElementById('partName').value,
+model:document.getElementById('partModel').value||undefined,
+stock:document.getElementById('partStock').value,
+min_stock:document.getElementById('partMinStock').value,
+unit_price:document.getElementById('partPrice').value,
+currency:document.getElementById('partCurrency').value
+})});
+if(r.ok){toast('Part added','success');hideModal();loadParts();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditPartModal(id){
+const r=await api(`/api/parts/${id}`);
+if(!r.ok)return toast('Failed','error');
+const p=r.data;
+showModal(`<div class="modal-header"><h2>Edit Part</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updatePart(event,${id})">
+<div class="form-row">
+<div class="form-group"><label>Name *</label><input type="text" id="partName" value="${p.name}" required></div>
+<div class="form-group"><label>Model</label><input type="text" id="partModel" value="${p.model||''}"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>Stock *</label><input type="number" id="partStock" value="${p.stock}" required min="0"></div>
+<div class="form-group"><label>Min Alert *</label><input type="number" id="partMinStock" value="${p.min_stock}" required min="0"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>Unit Price *</label><input type="number" step="0.01" id="partPrice" value="${p.unit_price}" required></div>
+<div class="form-group"><label>Currency</label><select id="partCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===p.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updatePart(e,id){
+e.preventDefault();
+const r=await api(`/api/parts/${id}`,{method:'PUT',body:JSON.stringify({
+name:document.getElementById('partName').value,
+model:document.getElementById('partModel').value||undefined,
+stock:document.getElementById('partStock').value,
+min_stock:document.getElementById('partMinStock').value,
+unit_price:document.getElementById('partPrice').value,
+currency:document.getElementById('partCurrency').value
+})});
+if(r.ok){toast('Part updated','success');hideModal();loadParts(state.parts.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deletePart(id){
+if(!confirm('Delete this part?'))return;
+const r=await api(`/api/parts/${id}`,{method:'DELETE'});
+if(r.ok){toast('Part deleted','success');loadParts(state.parts.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== SERVICES =====
+async function loadServices(page=1){
+const r=await api(`/api/services?page=${page}&limit=15`);
+if(r.ok){state.services={data:r.data.services||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+render();
+}
+
+function renderServices(){
+const{data,page,total}=state.services;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Services (Price List)</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewServiceModal()">+ Add Service</button></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Price</th><th>Currency</th><th>Active</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(s=>`<tr>
+<td>#${s.id}</td><td>${s.name}</td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.description||'-'}</td>
+<td>${formatCurrency(s.default_price,s.currency)}</td><td>${s.currency||state.settings.currency}</td>
+<td><span class="badge ${s.is_active!==false?'badge-active':'badge-inactive'}">${s.is_active!==false?'Yes':'No'}</span></td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showEditServiceModal(${s.id})">Edit</button>
+<button class="btn btn-danger btn-sm" onclick="deleteService(${s.id})">Delete</button>
+</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No services found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadServices(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadServices(${page+1})">Next</button></div>`;
+}
+
+async function showNewServiceModal(){
+showModal(`<div class="modal-header"><h2>Add Service</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createService(event)">
+<div class="form-group"><label>Name *</label><input type="text" id="svcName" required placeholder="e.g. Screen Replacement"></div>
+<div class="form-group"><label>Description</label><textarea id="svcDesc" placeholder="Service description"></textarea></div>
+<div class="form-row">
+<div class="form-group"><label>Default Price *</label><input type="number" step="0.01" id="svcPrice" required></div>
+<div class="form-group"><label>Currency</label><select id="svcCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label><input type="checkbox" id="svcActive" checked> Active</label></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Service</button></div>
+</form></div>`);
+}
+
+async function createService(e){
+e.preventDefault();
+const r=await api('/api/services',{method:'POST',body:JSON.stringify({
+name:document.getElementById('svcName').value,
+description:document.getElementById('svcDesc').value||undefined,
+default_price:document.getElementById('svcPrice').value,
+currency:document.getElementById('svcCurrency').value,
+is_active:document.getElementById('svcActive').checked
+})});
+if(r.ok){toast('Service added','success');hideModal();loadServices();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditServiceModal(id){
+const r=await api(`/api/services/${id}`);
+if(!r.ok)return toast('Failed','error');
+const s=r.data;
+showModal(`<div class="modal-header"><h2>Edit Service</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updateService(event,${id})">
+<div class="form-group"><label>Name *</label><input type="text" id="svcName" value="${s.name}" required></div>
+<div class="form-group"><label>Description</label><textarea id="svcDesc">${s.description||''}</textarea></div>
+<div class="form-row">
+<div class="form-group"><label>Default Price *</label><input type="number" step="0.01" id="svcPrice" value="${s.default_price}" required></div>
+<div class="form-group"><label>Currency</label><select id="svcCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===s.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label><input type="checkbox" id="svcActive" ${s.is_active!==false?'checked':''}> Active</label></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updateService(e,id){
+e.preventDefault();
+const r=await api(`/api/services/${id}`,{method:'PUT',body:JSON.stringify({
+name:document.getElementById('svcName').value,
+description:document.getElementById('svcDesc').value||undefined,
+default_price:document.getElementById('svcPrice').value,
+currency:document.getElementById('svcCurrency').value,
+is_active:document.getElementById('svcActive').checked
+})});
+if(r.ok){toast('Service updated','success');hideModal();loadServices(state.services.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deleteService(id){
+if(!confirm('Delete this service?'))return;
+const r=await api(`/api/services/${id}`,{method:'DELETE'});
+if(r.ok){toast('Service deleted','success');loadServices(state.services.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== PAYMENTS =====
+async function loadPayments(page=1){
+const f=state.filters;
+let url=`/api/payments?page=${page}&limit=15`;
+if(f.date_from)url+=`&date_from=${f.date_from}`;
+if(f.date_to)url+=`&date_to=${f.date_to}`;
+if(f.method)url+=`&method=${f.method}`;
+if(f.search)url+=`&search=${encodeURIComponent(f.search)}`;
+const r=await api(url);
+if(r.ok){state.payments={data:r.data.payments||r.data.data||[],page:r.data.page||page,total:r.data.total||0,summary:r.data.summary||{}};}
+render();
+}
+
+function renderPayments(){
+const{data,page,total,summary}=state.payments;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Payments</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewPaymentModal()">+ Record Payment</button></div></div>
+${summary?`<div class="stats-grid">${Object.entries(summary).map(([k,v])=>`<div class="stat-card blue"><div class="stat-label">${k}</div><div class="stat-value">${formatCurrency(v,k)}</div></div>`).join('')}</div>`:''}
+<div class="filter-bar">
+<input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value;loadPayments()">
+<input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value;loadPayments()">
+<select onchange="state.filters.method=this.value;loadPayments()"><option value="">All Methods</option>
+${PAYMENT_METHODS.map(m=>`<option value="${m}"${state.filters.method===m?' selected':''}>${m}</option>`).join('')}</select>
+<input type="text" placeholder="Search customer..." value="${state.filters.search||''}" onkeyup="if(event.key==='Enter'){state.filters.search=this.value;loadPayments()}">
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadPayments()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Repair#</th><th>Customer</th><th>Amount</th><th>Method</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(p=>`<tr>
+<td>#${p.id}</td><td>${p.repair_id?'#'+p.repair_id:'-'}</td><td>${p.customer_name||'-'}</td>
+<td>${formatCurrency(p.amount,p.currency)}</td><td>${p.method||'-'}</td><td>${formatDate(p.created_at||p.date)}</td>
+<td><button class="btn btn-danger btn-sm" onclick="deletePaymentFromList(${p.id})">Delete</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No payments found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadPayments(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadPayments(${page+1})">Next</button></div>`;
+}
+
+async function showNewPaymentModal(){
+const r=await api('/api/repairs?limit=100&status=received,diagnosed,waiting_parts,repairing,testing');
+const repairs=r.ok?(r.data.repairs||r.data.data||[]):[];
+showModal(`<div class="modal-header"><h2>Record Payment</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createPayment(event)">
+<div class="form-group"><label>Repair *</label><select id="payRepair" required>
+<option value="">Select repair</option>
+${repairs.map(rp=>`<option value="${rp.id}">#${rp.id} - ${rp.customer_name||''} (${rp.model||''})</option>`).join('')}
+</select></div>
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="payAmt" required></div>
+<div class="form-group"><label>Currency</label><select id="payCur">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Method *</label><select id="payMeth" required>
+<option value="">Select method</option>
+${PAYMENT_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Notes</label><input type="text" id="payNote"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Record</button></div>
+</form></div>`);
+}
+
+async function createPayment(e){
+e.preventDefault();
+const r=await api('/api/payments',{method:'POST',body:JSON.stringify({
+repair_id:document.getElementById('payRepair').value,
+amount:document.getElementById('payAmt').value,
+currency:document.getElementById('payCur').value,
+method:document.getElementById('payMeth').value,
+notes:document.getElementById('payNote').value||undefined
+})});
+if(r.ok){toast('Payment recorded','success');hideModal();loadPayments();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deletePaymentFromList(id){
+if(!confirm('Delete this payment?'))return;
+const r=await api(`/api/payments/${id}`,{method:'DELETE'});
+if(r.ok){toast('Payment deleted','success');loadPayments(state.payments.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== EXPENSES =====
+async function loadExpenses(page=1){
+const f=state.filters;
+let url=`/api/expenses?page=${page}&limit=15`;
+if(f.date_from)url+=`&date_from=${f.date_from}`;
+if(f.date_to)url+=`&date_to=${f.date_to}`;
+if(f.category)url+=`&category=${encodeURIComponent(f.category)}`;
+const r=await api(url);
+if(r.ok){state.expenses={data:r.data.expenses||r.data.data||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
+render();
+}
+
+function renderExpenses(){
+const{data,page,total,monthly_total}=state.expenses;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Expenses</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewExpenseModal()">+ Add Expense</button></div></div>
+<div class="stat-card red" style="margin-bottom:20px;max-width:300px"><div class="stat-label">This Month's Expenses</div><div class="stat-value">${formatCurrency(monthly_total)}</div></div>
+<div class="filter-bar">
+<input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value;loadExpenses()">
+<input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value;loadExpenses()">
+<select onchange="state.filters.category=this.value;loadExpenses()"><option value="">All Categories</option>
+${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${state.filters.category===c?' selected':''}>${c}</option>`).join('')}</select>
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadExpenses()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Date</th><th>Category</th><th>Amount</th><th>Note</th><th>Created By</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(x=>`<tr>
+<td>#${x.id}</td><td>${formatDate(x.date||x.created_at)}</td><td>${x.category||'-'}</td>
+<td>${formatCurrency(x.amount,x.currency)}</td><td>${x.note||'-'}</td><td>${x.created_by_name||x.user_name||'-'}</td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showEditExpenseModal(${x.id})">Edit</button>
+<button class="btn btn-danger btn-sm" onclick="deleteExpense(${x.id})">Delete</button>
+</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No expenses found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadExpenses(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadExpenses(${page+1})">Next</button></div>`;
+}
+
+async function showNewExpenseModal(){
+showModal(`<div class="modal-header"><h2>Add Expense</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createExpense(event)">
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="expAmt" required></div>
+<div class="form-group"><label>Currency</label><select id="expCur">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Category *</label><select id="expCat" required>
+<option value="">Select category</option>
+${EXPENSE_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Date</label><input type="date" id="expDate" value="${new Date().toISOString().split('T')[0]}"></div>
+<div class="form-group"><label>Note</label><input type="text" id="expNote" placeholder="Description"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Expense</button></div>
+</form></div>`);
+}
+
+async function createExpense(e){
+e.preventDefault();
+const r=await api('/api/expenses',{method:'POST',body:JSON.stringify({
+amount:document.getElementById('expAmt').value,
+currency:document.getElementById('expCur').value,
+category:document.getElementById('expCat').value,
+date:document.getElementById('expDate').value||undefined,
+note:document.getElementById('expNote').value||undefined
+})});
+if(r.ok){toast('Expense added','success');hideModal();loadExpenses();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditExpenseModal(id){
+const r=await api(`/api/expenses/${id}`);
+if(!r.ok)return toast('Failed','error');
+const x=r.data;
+showModal(`<div class="modal-header"><h2>Edit Expense</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updateExpense(event,${id})">
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="expAmt" value="${x.amount}" required></div>
+<div class="form-group"><label>Currency</label><select id="expCur">
+${CURRENCIES.map(c=>`<option value="${c}"${c===x.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Category *</label><select id="expCat" required>
+<option value="">Select</option>
+${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${c===x.category?' selected':''}>${c}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Date</label><input type="date" id="expDate" value="${(x.date||x.created_at||'').split('T')[0]}"></div>
+<div class="form-group"><label>Note</label><input type="text" id="expNote" value="${x.note||''}"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updateExpense(e,id){
+e.preventDefault();
+const r=await api(`/api/expenses/${id}`,{method:'PUT',body:JSON.stringify({
+amount:document.getElementById('expAmt').value,
+currency:document.getElementById('expCur').value,
+category:document.getElementById('expCat').value,
+date:document.getElementById('expDate').value||undefined,
+note:document.getElementById('expNote').value||undefined
+})});
+if(r.ok){toast('Expense updated','success');hideModal();loadExpenses(state.expenses.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deleteExpense(id){
+if(!confirm('Delete this expense?'))return;
+const r=await api(`/api/expenses/${id}`,{method:'DELETE'});
+if(r.ok){toast('Expense deleted','success');loadExpenses(state.expenses.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== DAILY SALES =====
+async function loadDailySales(page=1){
+const f=state.filters;
+let url=`/api/daily-sales?page=${page}&limit=15`;
+if(f.date_from)url+=`&date_from=${f.date_from}`;
+if(f.date_to)url+=`&date_to=${f.date_to}`;
+const r=await api(url);
+if(r.ok){state.daily_sales={data:r.data.sales||r.data.data||[],page:r.data.page||page,total:r.data.total||0,monthly_total:r.data.monthly_total||0};}
+render();
+}
+
+function renderDailySales(){
+const{data,page,total,monthly_total}=state.daily_sales;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Daily Sales</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewDailySaleModal()">+ Add Entry</button></div></div>
+<div class="stat-card green" style="margin-bottom:20px;max-width:300px"><div class="stat-label">This Month's Manual Sales</div><div class="stat-value">${formatCurrency(monthly_total)}</div></div>
+<div class="filter-bar">
+<input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value;loadDailySales()">
+<input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value;loadDailySales()">
+<button class="btn btn-ghost btn-sm" onclick="state.filters={};loadDailySales()">Clear</button>
+</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Date</th><th>Amount</th><th>Category</th><th>Note</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(s=>`<tr>
+<td>#${s.id}</td><td>${formatDate(s.date||s.created_at)}</td>
+<td>${formatCurrency(s.amount,s.currency)}</td><td>${s.category||'-'}</td><td>${s.note||'-'}</td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showEditDailySaleModal(${s.id})">Edit</button>
+<button class="btn btn-danger btn-sm" onclick="deleteDailySale(${s.id})">Delete</button>
+</div></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No sales entries found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadDailySales(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadDailySales(${page+1})">Next</button></div>`;
+}
+
+async function showNewDailySaleModal(){
+showModal(`<div class="modal-header"><h2>Add Sales Entry</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createDailySale(event)">
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="saleAmt" required></div>
+<div class="form-group"><label>Currency</label><select id="saleCur">
+${CURRENCIES.map(c=>`<option value="${c}"${c===state.settings.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Category</label><select id="saleCat">
+<option value="">Select category</option>
+${EXPENSE_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Date</label><input type="date" id="saleDate" value="${new Date().toISOString().split('T')[0]}"></div>
+<div class="form-group"><label>Note</label><input type="text" id="saleNote" placeholder="Description"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Entry</button></div>
+</form></div>`);
+}
+
+async function createDailySale(e){
+e.preventDefault();
+const r=await api('/api/daily-sales',{method:'POST',body:JSON.stringify({
+amount:document.getElementById('saleAmt').value,
+currency:document.getElementById('saleCur').value,
+category:document.getElementById('saleCat').value||undefined,
+date:document.getElementById('saleDate').value||undefined,
+note:document.getElementById('saleNote').value||undefined
+})});
+if(r.ok){toast('Entry added','success');hideModal();loadDailySales();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditDailySaleModal(id){
+const r=await api(`/api/daily-sales/${id}`);
+if(!r.ok)return toast('Failed','error');
+const s=r.data;
+showModal(`<div class="modal-header"><h2>Edit Sales Entry</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updateDailySale(event,${id})">
+<div class="form-row">
+<div class="form-group"><label>Amount *</label><input type="number" step="0.01" id="saleAmt" value="${s.amount}" required></div>
+<div class="form-group"><label>Currency</label><select id="saleCur">
+${CURRENCIES.map(c=>`<option value="${c}"${c===s.currency?' selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div class="form-group"><label>Category</label><select id="saleCat">
+<option value="">Select</option>
+${EXPENSE_CATEGORIES.map(c=>`<option value="${c}"${c===s.category?' selected':''}>${c}</option>`).join('')}
+</select></div>
+<div class="form-group"><label>Date</label><input type="date" id="saleDate" value="${(s.date||s.created_at||'').split('T')[0]}"></div>
+<div class="form-group"><label>Note</label><input type="text" id="saleNote" value="${s.note||''}"></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updateDailySale(e,id){
+e.preventDefault();
+const r=await api(`/api/daily-sales/${id}`,{method:'PUT',body:JSON.stringify({
+amount:document.getElementById('saleAmt').value,
+currency:document.getElementById('saleCur').value,
+category:document.getElementById('saleCat').value||undefined,
+date:document.getElementById('saleDate').value||undefined,
+note:document.getElementById('saleNote').value||undefined
+})});
+if(r.ok){toast('Entry updated','success');hideModal();loadDailySales(state.daily_sales.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function deleteDailySale(id){
+if(!confirm('Delete this entry?'))return;
+const r=await api(`/api/daily-sales/${id}`,{method:'DELETE'});
+if(r.ok){toast('Entry deleted','success');loadDailySales(state.daily_sales.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== REPORTS =====
+async function loadReports(){
+const f=state.filters;
+let url='/api/reports?';
+if(f.date_from)url+=`date_from=${f.date_from}&`;
+if(f.date_to)url+=`date_to=${f.date_to}&`;
+const r=await api(url);
+if(r.ok){state.reports=r.data;}
+render();
+}
+
+function renderReports(){
+const d=state.reports||{};
+const daily=d.daily_summary||d.daily||[];
+const payments=d.payment_methods||d.payments_breakdown||[];
+const statuses=d.repair_status||d.status_breakdown||[];
+const services=d.revenue_by_service||d.service_revenue||[];
+return`<div class="topbar"><h1>Reports</h1><div class="topbar-actions"><button class="btn btn-ghost" onclick="exportReport()">Export</button></div></div>
+<div class="filter-bar">
+<input type="date" value="${state.filters.date_from||''}" onchange="state.filters.date_from=this.value">
+<input type="date" value="${state.filters.date_to||''}" onchange="state.filters.date_to=this.value">
+<button class="btn btn-primary btn-sm" onclick="loadReports()">Generate</button>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+<div class="card"><div class="card-header"><h3>Daily Summary</h3></div>
+<table><thead><tr><th>Date</th><th>Sales</th><th>Expenses</th><th>Net</th></tr></thead><tbody>
+${daily.length?daily.map(d=>`<tr><td>${formatDate(d.date)}</td><td style="color:var(--success)">${formatCurrency(d.sales||d.revenue)}</td>
+<td style="color:var(--danger)">${formatCurrency(d.expenses)}</td><td style="font-weight:600">${formatCurrency((d.sales||d.revenue||0)-(d.expenses||0))}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">No data for selected period</td></tr>'}
+</tbody></table></div>
+
+<div class="card"><div class="card-header"><h3>Payment Methods</h3></div>
+${payments.length?payments.map(p=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>${p.method||p.name}</span><span style="font-weight:600">${formatCurrency(p.total||p.amount,p.currency)}</span></div>`).join(''):'<div class="empty">No data</div>'}
+</div>
+
+<div class="card"><div class="card-header"><h3>Repair Status Breakdown</h3></div>
+${statuses.length?statuses.map(s=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span><span class="badge ${STATUS_COLORS[s.status]||''}" style="margin-right:8px">${(s.status||'').replace('_',' ')}</span></span><span style="font-weight:600">${s.count}</span></div>`).join(''):'<div class="empty">No data</div>'}
+</div>
+
+<div class="card"><div class="card-header"><h3>Revenue by Service</h3></div>
+${services.length?services.map(s=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>${s.service_name||s.name}</span><span style="font-weight:600">${formatCurrency(s.revenue||s.total)}</span></div>`).join(''):'<div class="empty">No data</div>'}
+</div>
+</div>`;
+}
+
+function exportReport(){
+const f=state.filters;
+let url='/api/reports/export?format=csv&';
+if(f.date_from)url+=`date_from=${f.date_from}&`;
+if(f.date_to)url+=`date_to=${f.date_to}`;
+window.open(url,'_blank');
+}
+
+// ===== STAFF =====
+async function loadStaff(page=1){
+const r=await api(`/api/staff?page=${page}&limit=15`);
+if(r.ok){state.staff={data:r.data.staff||r.data.data||[],page:r.data.page||page,total:r.data.total||0};}
+render();
+}
+
+function renderStaff(){
+const{data,page,total}=state.staff;
+const pages=Math.ceil(total/15)||1;
+return`<div class="topbar"><h1>Staff</h1><div class="topbar-actions"><button class="btn btn-primary" onclick="showNewStaffModal()">+ Add Staff</button></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead><tbody>
+${data.length?data.map(s=>`<tr>
+<td>#${s.id}</td><td>${s.name}</td><td>${s.email||'-'}</td><td>${s.phone||'-'}</td>
+<td><span class="badge badge-received">${s.role||'staff'}</span></td>
+<td><span class="badge ${s.is_active!==false?'badge-active':'badge-inactive'}">${s.is_active!==false?'Active':'Inactive'}</span></td>
+<td>${formatDate(s.created_at)}</td>
+<td><div style="display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm" onclick="showEditStaffModal(${s.id})">Edit</button>
+<button class="btn btn-warning btn-sm" onclick="toggleStaffActive(${s.id},${s.is_active!==false})">${s.is_active!==false?'Deactivate':'Activate'}</button>
+</div></td></tr>`).join(''):'<tr><td colspan="8" class="empty">No staff found</td></tr>'}
+</tbody></table></div></div>
+<div class="pagination"><button ${page<=1?'disabled':''} onclick="loadStaff(${page-1})">Prev</button>
+<span style="color:var(--text-muted);font-size:13px">Page ${page} of ${pages}</span>
+<button ${page>=pages?'disabled':''} onclick="loadStaff(${page+1})">Next</button></div>`;
+}
+
+async function showNewStaffModal(){
+showModal(`<div class="modal-header"><h2>Add Staff</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="createStaff(event)">
+<div class="form-group"><label>Name *</label><input type="text" id="stfName" required></div>
+<div class="form-row">
+<div class="form-group"><label>Email *</label><input type="email" id="stfEmail" required></div>
+<div class="form-group"><label>Phone</label><input type="text" id="stfPhone"></div>
+</div>
+<div class="form-group"><label>Password *</label><input type="password" id="stfPass" required minlength="6"></div>
+<div class="form-group"><label>Role</label><select id="stfRole">
+<option value="staff">Staff</option><option value="technician">Technician</option><option value="admin">Admin</option>
+</select></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Add Staff</button></div>
+</form></div>`);
+}
+
+async function createStaff(e){
+e.preventDefault();
+const r=await api('/api/staff',{method:'POST',body:JSON.stringify({
+name:document.getElementById('stfName').value,
+email:document.getElementById('stfEmail').value,
+phone:document.getElementById('stfPhone').value||undefined,
+password:document.getElementById('stfPass').value,
+role:document.getElementById('stfRole').value
+})});
+if(r.ok){toast('Staff added','success');hideModal();loadStaff();}
+else toast(r.data.error||'Failed','error');
+}
+
+async function showEditStaffModal(id){
+const r=await api(`/api/staff/${id}`);
+if(!r.ok)return toast('Failed','error');
+const s=r.data;
+showModal(`<div class="modal-header"><h2>Edit Staff</h2><button class="modal-close" onclick="hideModal()">&times;</button></div>
+<div class="modal-body"><form onsubmit="updateStaff(event,${id})">
+<div class="form-group"><label>Name *</label><input type="text" id="stfName" value="${s.name}" required></div>
+<div class="form-row">
+<div class="form-group"><label>Email *</label><input type="email" id="stfEmail" value="${s.email}" required></div>
+<div class="form-group"><label>Phone</label><input type="text" id="stfPhone" value="${s.phone||''}"></div>
+</div>
+<div class="form-group"><label>Role</label><select id="stfRole">
+<option value="staff"${s.role==='staff'?' selected':''}>Staff</option>
+<option value="technician"${s.role==='technician'?' selected':''}>Technician</option>
+<option value="admin"${s.role==='admin'?' selected':''}>Admin</option>
+</select></div>
+<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="hideModal()">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+</form></div>`);
+}
+
+async function updateStaff(e,id){
+e.preventDefault();
+const body={
+name:document.getElementById('stfName').value,
+email:document.getElementById('stfEmail').value,
+phone:document.getElementById('stfPhone').value||undefined,
+role:document.getElementById('stfRole').value
+};
+const r=await api(`/api/staff/${id}`,{method:'PUT',body:JSON.stringify(body)});
+if(r.ok){toast('Staff updated','success');hideModal();loadStaff(state.staff.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+async function toggleStaffActive(id,currentlyActive){
+const action=currentlyActive?'deactivate':'activate';
+if(!confirm(`${action} this staff member?`))return;
+const r=await api(`/api/staff/${id}`,{method:'PUT',body:JSON.stringify({is_active:!currentlyActive})});
+if(r.ok){toast(`Staff ${action}d`,'success');loadStaff(state.staff.page);}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== SETTINGS =====
+async function loadSettingsPage(){
+const r=await api('/api/settings');
+if(r.ok){state.settings={...state.settings,...r.data};}
+render();
+}
+
+function renderSettings(){
+const s=state.settings;
+return`<div class="topbar"><h1>Settings</h1></div>
+<div class="card" style="max-width:600px">
+<form onsubmit="saveSettings(event)">
+<div class="form-group"><label>Shop Name</label><input type="text" id="setShopName" value="${s.shop_name||''}"></div>
+<div class="form-group"><label>Address</label><input type="text" id="setAddress" value="${s.address||''}"></div>
+<div class="form-row">
+<div class="form-group"><label>Phone</label><input type="text" id="setPhone" value="${s.phone||''}"></div>
+<div class="form-group"><label>Email</label><input type="email" id="setEmail" value="${s.email||''}"></div>
+</div>
+<div class="form-group"><label>Default Currency</label><select id="setCurrency">
+${CURRENCIES.map(c=>`<option value="${c}"${c===(s.currency||'USD')?' selected':''}>${c}</option>`).join('')}
+</select></div>
+<button type="submit" class="btn btn-primary">Save Settings</button>
+</form></div>`;
+}
+
+async function saveSettings(e){
+e.preventDefault();
+const r=await api('/api/settings',{method:'PUT',body:JSON.stringify({
+shop_name:document.getElementById('setShopName').value,
+address:document.getElementById('setAddress').value,
+phone:document.getElementById('setPhone').value,
+email:document.getElementById('setEmail').value,
+currency:document.getElementById('setCurrency').value
+})});
+if(r.ok){toast('Settings saved','success');await loadSettings();render();}
+else toast(r.data.error||'Failed','error');
+}
+
+// ===== RENDER =====
+function render(){
+const app=document.getElementById('app');
+const token=localStorage.getItem('token');
+if(!token){app.innerHTML=renderLogin();return;}
+
+let pageHtml='';
+switch(state.page){
+case'dashboard':pageHtml=renderDashboard();break;
+case'repairs':pageHtml=renderRepairs();break;
+case'customers':pageHtml=renderCustomers();break;
+case'inventory':pageHtml=renderParts();break;
+case'services':pageHtml=renderServices();break;
+case'payments':pageHtml=renderPayments();break;
+case'expenses':pageHtml=renderExpenses();break;
+case'daily':pageHtml=renderDailySales();break;
+case'reports':pageHtml=renderReports();break;
+case'staff':pageHtml=renderStaff();break;
+case'settings':pageHtml=renderSettings();break;
+default:pageHtml=renderDashboard();
+}
+
+app.innerHTML=`<div class="app">${renderSidebar()}<div class="main">
+<button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>
+${pageHtml}</div></div>`;
+}
+
+// ===== INIT =====
+async function init(){
+const token=localStorage.getItem('token');
+if(token){
+state.user={};
+await loadSettings();
+render();
+switch(state.page){
+case'dashboard':loadDashboard();break;
+case'repairs':loadRepairs();break;
+case'customers':loadCustomers();break;
+case'inventory':loadParts();break;
+case'services':loadServices();break;
+case'payments':loadPayments();break;
+case'expenses':loadExpenses();break;
+case'daily':loadDailySales();break;
+case'reports':loadReports();break;
+case'staff':loadStaff();break;
+case'settings':loadSettingsPage();break;
+}
+}else{render();}
+}
+
+init();
+</script>
+</body>
+</html>
