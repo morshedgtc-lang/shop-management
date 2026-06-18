@@ -10,7 +10,7 @@ from app.utils.auth import get_current_user, require_admin
 router = APIRouter(prefix="/api/services", tags=["services"])
 
 
-@router.get("/", response_model=list[ServiceResponse])
+@router.get("", response_model=list[ServiceResponse])
 def list_services(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -19,7 +19,7 @@ def list_services(
     return services
 
 
-@router.post("/", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED)
 def create_service(
     data: ServiceCreate,
     db: Session = Depends(get_db),

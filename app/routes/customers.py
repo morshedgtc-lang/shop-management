@@ -13,7 +13,7 @@ from app.utils.auth import get_current_user, require_admin
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_customers(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -40,7 +40,7 @@ def list_customers(
     }
 
 
-@router.post("/", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CustomerResponse, status_code=status.HTTP_201_CREATED)
 def create_customer(
     data: CustomerCreate,
     db: Session = Depends(get_db),

@@ -47,7 +47,7 @@ class StaffUpdateRequest:
         self.active = active
 
 
-@router.get("/", response_model=list[UserResponse])
+@router.get("", response_model=list[UserResponse])
 def list_staff(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -67,7 +67,7 @@ def list_staff(
     return staff
 
 
-@router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
 def create_staff(
     name: str = Query(...),
     email: str = Query(...),

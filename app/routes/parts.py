@@ -11,7 +11,7 @@ from app.utils.auth import get_current_user, require_admin, require_manager_or_a
 router = APIRouter(prefix="/api/parts", tags=["parts"])
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_parts(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -45,7 +45,7 @@ def list_low_stock_parts(
     return parts
 
 
-@router.post("/", response_model=PartResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PartResponse, status_code=status.HTTP_201_CREATED)
 def create_part(
     data: PartCreate,
     db: Session = Depends(get_db),

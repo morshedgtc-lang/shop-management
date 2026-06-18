@@ -19,7 +19,7 @@ from app.utils.auth import get_current_user, require_admin, require_manager_or_a
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_expenses(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -68,7 +68,7 @@ def list_expenses(
     }
 
 
-@router.post("/", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
 def create_expense(
     data: ExpenseCreate,
     db: Session = Depends(get_db),

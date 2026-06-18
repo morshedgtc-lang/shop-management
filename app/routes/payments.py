@@ -14,7 +14,7 @@ from app.utils.auth import get_current_user
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_payments(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -50,7 +50,7 @@ def list_payments(
     }
 
 
-@router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 def create_payment(
     data: PaymentCreate,
     db: Session = Depends(get_db),

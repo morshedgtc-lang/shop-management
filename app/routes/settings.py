@@ -25,7 +25,7 @@ def set_setting_value(db: Session, key: str, value: str):
         db.add(setting)
 
 
-@router.get("/", response_model=SettingResponse)
+@router.get("", response_model=SettingResponse)
 def get_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -45,7 +45,7 @@ def get_settings(
     )
 
 
-@router.put("/", response_model=SettingResponse)
+@router.put("", response_model=SettingResponse)
 def update_settings(
     data: SettingUpdate,
     db: Session = Depends(get_db),

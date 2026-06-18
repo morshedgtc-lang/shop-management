@@ -94,7 +94,7 @@ def build_repair_response(r: Repair, db: Session) -> RepairResponse:
     )
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_repairs(
     status_filter: Optional[str] = Query(None, alias="status"),
     assigned_to: Optional[int] = Query(None),
@@ -140,7 +140,7 @@ def list_repairs(
     }
 
 
-@router.post("/", response_model=RepairResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=RepairResponse, status_code=status.HTTP_201_CREATED)
 def create_repair(
     data: RepairCreate,
     db: Session = Depends(get_db),

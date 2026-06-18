@@ -12,7 +12,7 @@ from app.utils.auth import get_current_user, require_admin, require_manager_or_a
 router = APIRouter(prefix="/api/daily-sales", tags=["daily_sales"])
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 def list_daily_sales(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -43,7 +43,7 @@ def list_daily_sales(
 
 
 @router.post(
-    "/", response_model=DailySaleResponse, status_code=status.HTTP_201_CREATED
+    "", response_model=DailySaleResponse, status_code=status.HTTP_201_CREATED
 )
 def create_daily_sale(
     data: DailySaleCreate,
