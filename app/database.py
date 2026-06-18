@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import DATABASE_URL
 
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./shop.db")
+
 connect_args = {}
 engine_kwargs = {}
 
@@ -13,6 +15,7 @@ else:
         sep = "&" if "?" in DATABASE_URL else "?"
         DATABASE_URL = DATABASE_URL + sep + "sslmode=require"
 
+print(f"[DB] Connecting to: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}")
 engine = create_engine(DATABASE_URL, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
