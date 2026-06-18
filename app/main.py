@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 import os
 
 from app.database import init_db, get_db
-from app.routes import auth, customers, repairs, services, parts, payments, expenses, daily_sales, reports, staff, settings
+from app.routes import auth, customers, repairs, services, parts, payments, expenses, daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders
 
 app = FastAPI(
     title="Shop Management",
@@ -33,6 +33,9 @@ app.include_router(daily_sales.router)
 app.include_router(reports.router)
 app.include_router(staff.router)
 app.include_router(settings.router)
+app.include_router(catalog.router)
+app.include_router(suppliers.router)
+app.include_router(purchase_orders.router)
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):

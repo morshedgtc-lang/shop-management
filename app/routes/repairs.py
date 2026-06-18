@@ -18,7 +18,7 @@ from app.schemas.repair import (
     RepairPartResponse,
     RepairPaymentResponse,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, require_manager_or_admin
 
 router = APIRouter(prefix="/api/repairs", tags=["repairs"])
 
@@ -52,6 +52,8 @@ def build_repair_response(r: Repair, db: Session) -> RepairResponse:
             part_id=rp.part_id,
             qty=rp.qty,
             unit_price=rp.unit_price,
+            selling_price=rp.selling_price,
+            returned_qty=rp.returned_qty,
             part_name=rp.part.name if rp.part else "",
         )
         for rp in r.repair_parts
@@ -83,6 +85,7 @@ def build_repair_response(r: Repair, db: Session) -> RepairResponse:
         imei=r.imei,
         estimated_cost=r.estimated_cost,
         actual_cost=r.actual_cost,
+        service_fee=r.service_fee or 0,
         notes=r.notes,
         created_at=r.created_at,
         updated_at=r.updated_at,
@@ -166,6 +169,7 @@ def create_repair(
         estimated_cost=data.estimated_cost,
         assigned_to=data.assigned_to,
         notes=data.notes,
+        service_fee=data.service_fee,
     )
     db.add(repair)
     db.commit()
@@ -252,6 +256,8 @@ def list_repair_parts(
             part_id=rp.part_id,
             qty=rp.qty,
             unit_price=rp.unit_price,
+            selling_price=rp.selling_price,
+            returned_qty=rp.returned_qty,
             part_name=rp.part.name if rp.part else "",
         )
         for rp in parts
@@ -265,6 +271,7 @@ def add_repair_part(
     repair_id: int,
     part_id: int = Query(...),
     qty: int = Query(1, ge=1),
+    selling_price: float = Query(0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -289,6 +296,7 @@ def add_repair_part(
         part_id=part_id,
         qty=qty,
         unit_price=part.unit_price,
+        selling_price=selling_price,
     )
     db.add(repair_part)
     db.commit()
@@ -298,6 +306,8 @@ def add_repair_part(
         part_id=repair_part.part_id,
         qty=repair_part.qty,
         unit_price=repair_part.unit_price,
+        selling_price=repair_part.selling_price,
+        returned_qty=repair_part.returned_qty,
         part_name=part.name,
     )
 
@@ -350,3 +360,67 @@ def list_repair_payments(
         )
         for p in payments
     ]
+
+
+@router.post("/{repair_id}/parts/{rp_id}/return", response_model=RepairPartResponse)
+def return_repair_part(
+    repair_id: int,
+    rp_id: int,
+    qty: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    repair_part = db.query(RepairPart).filter(
+        RepairPart.id == rp_id, RepairPart.repair_id == repair_id
+    ).first()
+    if not repair_part:
+        raise HTTPException(status_code=404, detail="Repair part not found")
+    available = repair_part.qty - repair_part.returned_qty
+    if qty > available:
+        raise HTTPException(status_code=400, detail=f"Cannot return {qty}. Only {available} available to return")
+    repair_part.returned_qty += qty
+    part = db.query(Part).filter(Part.id == repair_part.part_id).first()
+    if part:
+        part.stock_qty += qty
+    db.commit()
+    db.refresh(repair_part)
+    return RepairPartResponse(
+        id=repair_part.id, part_id=repair_part.part_id,
+        qty=repair_part.qty, unit_price=repair_part.unit_price,
+        selling_price=repair_part.selling_price,
+        returned_qty=repair_part.returned_qty,
+        part_name=repair_part.part.name if repair_part.part else "",
+    )
+
+
+@router.post("/{repair_id}/cancel", response_model=RepairResponse)
+def cancel_repair(
+    repair_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_manager_or_admin),
+):
+    repair = db.query(Repair).filter(Repair.id == repair_id).first()
+    if not repair:
+        raise HTTPException(status_code=404, detail="Repair not found")
+    if repair.status == "delivered":
+        raise HTTPException(status_code=400, detail="Cannot cancel a delivered repair")
+    for rp in repair.repair_parts:
+        remaining = rp.qty - rp.returned_qty
+        if remaining > 0:
+            rp.returned_qty = rp.qty
+            part = db.query(Part).filter(Part.id == rp.part_id).first()
+            if part:
+                part.stock_qty += remaining
+    from app.models.payment import Payment
+    payments = db.query(Payment).filter(Payment.repair_id == repair_id).all()
+    for p in payments:
+        if p.amount > 0:
+            refund = Payment(
+                repair_id=repair_id, amount=-p.amount, currency=p.currency,
+                method="cash", notes=f"Refund for cancelled repair", created_by=current_user.id,
+            )
+            db.add(refund)
+    repair.status = "cancelled"
+    db.commit()
+    db.refresh(repair)
+    return build_repair_response(repair, db)

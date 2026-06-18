@@ -30,6 +30,8 @@ def get_db():
 def init_db():
     from app.models import user, customer, repair, service, part, repair_part
     from app.models import payment, daily_sale, expense, expense_category, setting
+    from app.models import brand, device_model, part_category, part_type
+    from app.models import supplier, purchase_order, supplier_payment
 
     Base.metadata.create_all(bind=engine)
 
@@ -81,5 +83,88 @@ def init_db():
             for key, value in defaults.items():
                 db.add(Setting(key=key, value=value))
             db.commit()
+
+        _seed_catalog(db)
     finally:
         db.close()
+
+
+def _seed_catalog(db):
+    from app.models.brand import Brand
+    from app.models.device_model import DeviceModel
+    from app.models.part_category import PartCategory
+    from app.models.part_type import PartType
+
+    if db.query(Brand).count() == 0:
+        brands = [
+            "Realme", "Samsung", "iPhone", "Xiaomi", "Redmi", "Poco",
+            "OnePlus", "Oppo", "Vivo", "Honor", "Huawei", "Motorola",
+            "Nokia", "Tecno", "Infinix", "iTel", "Google Pixel",
+            "Sony", "LG", "ASUS", "Nothing", "Meizu", "ZTE",
+        ]
+        for i, name in enumerate(brands):
+            db.add(Brand(name=name, sort_order=i))
+        db.commit()
+
+    if db.query(PartCategory).count() == 0:
+        categories = {
+            "Screen & Display": [
+                "LCD Display", "OLED Display", "AMOLED Display", "Display Frame",
+                "Touch Screen (Digitizer)", "Display Flex Cable", "Display Glass",
+            ],
+            "Battery & Charging": [
+                "Battery", "Charging Port Board", "Charging Flex Cable",
+                "Wireless Charging Coil", "Battery Connector",
+            ],
+            "Board Components (IC/Chips)": [
+                "Power IC (PMIC)", "CPU / SoC", "Memory (RAM/eMMC/UFS)",
+                "Charging IC", "Audio IC", "WiFi/Bluetooth IC", "NFC IC",
+                "Display Driver IC (DDIC)", "Baseband IC", "Touch IC",
+                "SIM IC", "Sensor IC",
+            ],
+            "Audio": [
+                "Main Speaker (Loudspeaker)", "Ear Speaker (Earpiece)",
+                "Main Microphone", "Sub Microphone", "Audio Jack Board",
+            ],
+            "Camera": [
+                "Rear Camera (Main)", "Rear Camera (Ultrawide)",
+                "Rear Camera (Telephoto/Macro)", "Front Camera (Selfie)",
+                "Camera Flex Cable", "Camera Glass",
+            ],
+            "Sensors & Buttons": [
+                "Power Button Flex", "Volume Button Flex",
+                "Fingerprint Sensor (Side)", "Fingerprint Sensor (Under Display)",
+                "Proximity/Light Sensor", "Gyroscope/Accelerometer",
+            ],
+            "Flex Cables & Connectors": [
+                "Main Flex Cable", "Display Flex Cable",
+                "Battery Connector", "SIM Tray", "Antenna Cable",
+            ],
+            "Housing & Frame": [
+                "Back Cover", "Middle Frame / Chassis",
+                "SIM Tray", "Side Buttons", "Antenna Band",
+            ],
+            "Accessories - Protection": [
+                "Phone Case", "Back Cover", "Tempered Glass",
+                "Camera Lens Protector", "Waterproof Case",
+            ],
+            "Accessories - Charging": [
+                "Charger (Adapter)", "USB Cable", "Wireless Charger",
+                "Car Charger", "Power Bank",
+            ],
+            "Accessories - Audio": [
+                "Wired Earphones", "Bluetooth Earbuds",
+                "External Speaker", "Audio Splitter",
+            ],
+            "Accessories - Other": [
+                "Phone Holder / Stand", "Ring Holder", "Car Mount",
+                "Pop Socket", "Stylus / Pen", "Memory Card (SD)", "SIM Adapter",
+            ],
+        }
+        for i, (cat_name, types) in enumerate(categories.items()):
+            cat = PartCategory(name=cat_name, sort_order=i)
+            db.add(cat)
+            db.flush()
+            for j, type_name in enumerate(types):
+                db.add(PartType(category_id=cat.id, name=type_name, sort_order=j))
+        db.commit()
