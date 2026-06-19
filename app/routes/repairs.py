@@ -1,5 +1,7 @@
+import os
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select, func as sqlfunc
 from typing import Optional
 
@@ -19,12 +21,49 @@ from app.schemas.repair import (
     VALID_TRANSITIONS, CANCELLABLE_STATUSES,
 )
 from app.utils.auth import get_current_user
+from app.utils.invoice_generator import invoice_generator
 from app.utils.permissions import (
     require_reception, require_technician, require_warehouse,
     require_reception_or_technician, require_reception_or_admin,
     require_admin, can_cancel_repair,
 )
 from app.utils.ws_manager import ws_manager
+
+
+async def _build_invoice_data(repair, response, db, estimate=False):
+    """Build repair_data dict for the invoice generator."""
+    shop_name = ""
+    shop_address = ""
+    shop_phone = ""
+    if repair.intermediate_shop_id:
+        shop = await db.get(IntermediateShop, repair.intermediate_shop_id)
+        if shop:
+            shop_name = shop.name or ""
+            shop_address = shop.address or ""
+            shop_phone = shop.phone or ""
+
+    return {
+        "id": response.id,
+        "customer_name": response.customer_name,
+        "model": response.model,
+        "imei": response.imei,
+        "issues": response.issues,
+        "parts": [
+            {
+                "part_name": p.part_name,
+                "qty": p.qty,
+                "unit_price": p.unit_price,
+                "selling_price": p.selling_price,
+            }
+            for p in response.parts
+        ],
+        "service_fee": response.service_fee,
+        "payment_status": response.payment_status,
+        "created_at": response.created_at,
+        "shop_name": shop_name,
+        "shop_address": shop_address,
+        "shop_phone": shop_phone,
+    }
 
 router = APIRouter(prefix="/api/repairs", tags=["repairs"])
 
@@ -702,3 +741,44 @@ async def deny_part_request(
         quantity=req.quantity, status=req.status, notes=req.notes,
         created_at=req.created_at,
     )
+
+
+@router.get("/{repair_id}/estimate")
+async def generate_estimate(
+    repair_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    repair = result.scalar_one_or_none()
+    if not repair:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+
+    response = await build_repair_response(repair, db)
+    data = await _build_invoice_data(repair, response, db, estimate=True)
+    pdf_path = invoice_generator.generate_invoice(data, estimate=True)
+
+    return FileResponse(pdf_path, media_type="application/pdf", filename=f"estimate_{repair_id}.pdf")
+
+
+@router.get("/{repair_id}/invoice")
+async def generate_invoice(
+    repair_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    repair = result.scalar_one_or_none()
+    if not repair:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    if repair.status != "COMPLETED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invoice can only be generated for completed repairs",
+        )
+
+    response = await build_repair_response(repair, db)
+    data = await _build_invoice_data(repair, response, db)
+    pdf_path = invoice_generator.generate_invoice(data)
+
+    return FileResponse(pdf_path, media_type="application/pdf", filename=f"invoice_{repair_id}.pdf")
