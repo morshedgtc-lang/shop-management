@@ -15,6 +15,7 @@ from app.schemas.purchase_order import (
     PO_STATUSES, PO_VALID_TRANSITIONS,
 )
 from app.utils.auth import get_current_user, require_reseller_or_admin
+from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/purchase-orders", tags=["purchase-orders"])
 
@@ -114,6 +115,13 @@ async def create_po(data: PurchaseOrderCreate, db=Depends(get_db), current_user=
         ))
     await db.commit()
     await db.refresh(po)
+    await ws_manager.broadcast("po_created", {
+        "po_id": po.id,
+        "po_number": po.po_number,
+        "supplier_id": po.supplier_id,
+        "status": po.status,
+        "created_by": current_user.id,
+    })
     return await build_po_response(po, db)
 
 
@@ -144,9 +152,17 @@ async def update_po_status(
             status_code=400,
             detail=f"Invalid transition from '{po.status}' to '{new_status}'",
         )
+    old_status = po.status
     po.status = new_status
     await db.commit()
     await db.refresh(po)
+    await ws_manager.broadcast("po_status_changed", {
+        "po_id": po.id,
+        "po_number": po.po_number,
+        "old_status": old_status,
+        "new_status": po.status,
+        "changed_by": current_user.id,
+    })
     return await build_po_response(po, db)
 
 
@@ -223,6 +239,14 @@ async def receive_shipment(po_id: int, data: POReceiptCreate, db=Depends(get_db)
     po.status = "received" if all_received else "partially_received"
     await db.commit()
     await db.refresh(receipt)
+    await ws_manager.broadcast("po_received", {
+        "po_id": po.id,
+        "po_number": po.po_number,
+        "receipt_id": receipt.id,
+        "invoice_number": receipt.invoice_number,
+        "status": po.status,
+        "received_by": current_user.id,
+    })
     return {
         "receipt_id": receipt.id,
         "invoice_number": receipt.invoice_number,

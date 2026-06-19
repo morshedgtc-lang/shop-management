@@ -19,7 +19,7 @@ from app.models.customer import Customer
 from app.models.part import Part
 from app.routes import (
     auth, customers, repairs, services, parts, payments, expenses,
-    daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders,
+    daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders, ws,
 )
 
 app = FastAPI(
@@ -51,6 +51,7 @@ app.include_router(settings.router)
 app.include_router(catalog.router)
 app.include_router(suppliers.router)
 app.include_router(purchase_orders.router)
+app.include_router(ws.router)
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
@@ -234,3 +235,4 @@ async def dashboard(
         "low_stock": low_stock_list,
         "recent_repairs": recent_list,
     }
+

@@ -16,6 +16,7 @@ from app.schemas.repair import (
     CANCELLABLE_STATUSES,
 )
 from app.utils.auth import get_current_user, require_reseller_or_admin
+from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/repairs", tags=["repairs"])
 
@@ -189,6 +190,13 @@ async def create_repair(
     db.add(repair)
     await db.commit()
     await db.refresh(repair)
+    await ws_manager.broadcast("repair_created", {
+        "repair_id": repair.id,
+        "customer_id": repair.customer_id,
+        "model": repair.model,
+        "status": repair.status,
+        "created_by": current_user.id,
+    })
     return await build_repair_response(repair, db)
 
 
@@ -220,6 +228,11 @@ async def update_repair(
         setattr(repair, key, value)
     await db.commit()
     await db.refresh(repair)
+    await ws_manager.broadcast("repair_updated", {
+        "repair_id": repair.id,
+        "status": repair.status,
+        "updated_by": current_user.id,
+    })
     return await build_repair_response(repair, db)
 
 
@@ -241,9 +254,16 @@ async def update_repair_status(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid transition from '{repair.status}' to '{data.status}'",
         )
+    old_status = repair.status
     repair.status = data.status
     await db.commit()
     await db.refresh(repair)
+    await ws_manager.broadcast("repair_status_changed", {
+        "repair_id": repair.id,
+        "old_status": old_status,
+        "new_status": repair.status,
+        "changed_by": current_user.id,
+    })
     return await build_repair_response(repair, db)
 
 
@@ -307,6 +327,13 @@ async def add_repair_part(
     db.add(repair_part)
     await db.commit()
     await db.refresh(repair_part)
+    await ws_manager.broadcast("repair_part_added", {
+        "repair_id": repair_id,
+        "part_id": part_id,
+        "part_name": part.name,
+        "qty": qty,
+        "added_by": current_user.id,
+    })
     return RepairPartResponse(
         id=repair_part.id, part_id=repair_part.part_id, qty=repair_part.qty,
         unit_price=repair_part.unit_price, selling_price=repair_part.selling_price,
@@ -389,6 +416,13 @@ async def return_repair_part(
         part.stock_qty += qty
     await db.commit()
     await db.refresh(repair_part)
+    await ws_manager.broadcast("repair_part_added", {
+        "repair_id": repair_id,
+        "part_id": part_id,
+        "part_name": part.name,
+        "qty": qty,
+        "added_by": current_user.id,
+    })
     return RepairPartResponse(
         id=repair_part.id, part_id=repair_part.part_id,
         qty=repair_part.qty, unit_price=repair_part.unit_price,
@@ -432,4 +466,9 @@ async def cancel_repair(
     repair.status = "cancelled"
     await db.commit()
     await db.refresh(repair)
+    await ws_manager.broadcast("repair_cancelled", {
+        "repair_id": repair.id,
+        "customer_id": repair.customer_id,
+        "cancelled_by": current_user.id,
+    })
     return await build_repair_response(repair, db)

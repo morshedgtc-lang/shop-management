@@ -7,6 +7,7 @@ from app.models.payment import Payment
 from app.models.repair import Repair
 from app.schemas.payment import PaymentCreate, PaymentResponse
 from app.utils.auth import get_current_user, require_reseller_or_admin
+from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -82,6 +83,14 @@ async def create_payment(
     db.add(payment)
     await db.commit()
     await db.refresh(payment)
+    await ws_manager.broadcast("payment_received", {
+        "payment_id": payment.id,
+        "repair_id": payment.repair_id,
+        "amount": payment.amount,
+        "currency": payment.currency,
+        "method": payment.method,
+        "created_by": current_user.id,
+    })
     return payment
 
 

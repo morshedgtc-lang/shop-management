@@ -42,3 +42,62 @@ async function loadDashboard(){const r=await api('/api/dashboard');if(r.ok){stat
 function renderDashboard(){const d=state.dashboard;return`<div class="topbar"><h1>Dashboard</h1><div class="topbar-actions"><button class="btn btn-ghost" onclick="loadDashboard()">Refresh</button></div></div><div class="stats-grid"><div class="stat-card blue"><div class="stat-label">Today's Repairs</div><div class="stat-value">${d.today_repairs||0}</div><div class="stat-sub">Total received today</div></div><div class="stat-card yellow"><div class="stat-label">Pending</div><div class="stat-value">${d.pending||0}</div><div class="stat-sub">Awaiting action</div></div><div class="stat-card purple"><div class="stat-label">In Progress</div><div class="stat-value">${d.in_progress||0}</div><div class="stat-sub">Currently being worked on</div></div><div class="stat-card green"><div class="stat-label">Completed Today</div><div class="stat-value">${d.completed_today||0}</div><div class="stat-sub">Delivered today</div></div><div class="stat-card green"><div class="stat-label">Today's Revenue</div><div class="stat-value">${formatCurrency(d.today_revenue)}</div><div class="stat-sub">Sales + Repair payments</div></div><div class="stat-card red"><div class="stat-label">Today's Expenses</div><div class="stat-value">${formatCurrency(d.today_expenses)}</div><div class="stat-sub">Total spent today</div></div><div class="stat-card cyan"><div class="stat-label">Net Profit</div><div class="stat-value">${formatCurrency(d.net_profit)}</div><div class="stat-sub">Revenue - Expenses</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px"><div class="card"><div class="card-header"><h3>Recent Repairs</h3></div>${(d.recent_repairs||[]).length?`<table><thead><tr><th>ID</th><th>Customer</th><th>Model</th><th>Status</th></tr></thead><tbody>${(d.recent_repairs||[]).map(r=>`<tr><td>#${r.id}</td><td>${esc(r.customer_name||'-')}</td><td>${esc(r.model||'-')}</td><td><span class="badge ${STATUS_COLORS[r.status]||''}">${(r.status||'').replace('_',' ')}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">No recent repairs</div>'}</div><div class="card"><div class="card-header"><h3>Low Stock Alerts</h3></div>${(d.low_stock||[]).length?`<table><thead><tr><th>Part</th><th>Model</th><th>Stock</th><th>Min</th></tr></thead><tbody>${(d.low_stock||[]).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.model||'-')}</td><td style="color:var(--danger)">${p.stock_qty}</td><td>${p.min_stock_alert}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">All parts well stocked</div>'}</div></div>`;}
 function render(){const app=document.getElementById('app');const token=localStorage.getItem('token');if(!token){app.innerHTML=renderLogin();return;}let pageHtml='';switch(state.page){case'dashboard':pageHtml=renderDashboard();break;case'repairs':pageHtml=renderRepairs();break;case'customers':pageHtml=renderCustomers();break;case'inventory':pageHtml=renderParts();break;case'services':pageHtml=renderServices();break;case'payments':pageHtml=renderPayments();break;case'expenses':pageHtml=renderExpenses();break;case'daily':pageHtml=renderDailySales();break;case'suppliers':pageHtml=renderSuppliers();break;case'purchase_orders':pageHtml=renderPurchaseOrders();break;case'reports':pageHtml=renderReports();break;case'staff':pageHtml=renderStaff();break;case'settings':pageHtml=renderSettings();break;default:pageHtml=renderDashboard();}app.innerHTML=`<div class="app">${renderSidebar()}<div class="main"><button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>${pageHtml}</div></div>`;}
 async function init(){const token=localStorage.getItem('token');if(token){state.user={};await loadSettings();render();switch(state.page){case'dashboard':loadDashboard();break;case'repairs':loadRepairs();break;case'customers':loadCustomers();break;case'inventory':loadParts();break;case'services':loadServices();break;case'payments':loadPayments();break;case'expenses':loadExpenses();break;case'daily':loadDailySales();break;case'suppliers':loadSuppliers();break;case'purchase_orders':loadPurchaseOrders();break;case'reports':loadReports();break;case'staff':loadStaff();break;case'settings':loadSettingsPage();break;}}else{render();}}
+
+var ws = null;
+var wsReconnectTimer = null;
+var wsReconnectDelay = 1000;
+
+function connectWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    var token = localStorage.getItem("token");
+    if (!token) return;
+    var proto = location.protocol === "https:" ? "wss:" : "ws:";
+    var url = proto + "//" + location.host + "/ws?token=" + encodeURIComponent(token);
+    try {
+        ws = new WebSocket(url);
+    } catch(e) { return; }
+    ws.onopen = function() { wsReconnectDelay = 1000; };
+    ws.onmessage = function(evt) {
+        try {
+            var msg = JSON.parse(evt.data);
+            handleWsEvent(msg);
+        } catch(e) {}
+    };
+    ws.onclose = function() {
+        ws = null;
+        wsReconnectTimer = setTimeout(function() {
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+            connectWebSocket();
+        }, wsReconnectDelay);
+    };
+}
+
+function handleWsEvent(msg) {
+    var type = msg.type;
+    var data = msg.data || {};
+    var toasts = {
+        repair_created: "New repair #" + (data.repair_id||"") + " created",
+        repair_updated: "Repair #" + (data.repair_id||"") + " updated",
+        repair_status_changed: "Repair #" + (data.repair_id||"") + ": " + (data.old_status||"") + " -> " + (data.new_status||""),
+        repair_cancelled: "Repair #" + (data.repair_id||"") + " cancelled",
+        repair_part_added: "Part added to repair #" + (data.repair_id||""),
+        payment_received: "Payment of " + (data.currency||"$") + (data.amount||"0") + " received for repair #" + (data.repair_id||""),
+        po_created: "PO " + (data.po_number||"") + " created",
+        po_status_changed: "PO " + (data.po_number||"") + ": " + (data.old_status||"") + " -> " + (data.new_status||""),
+        po_received: "PO " + (data.po_number||"") + " received",
+        stock_updated: "Stock updated: " + (data.name||"") + " (" + (data.sku||"") + ")",
+        low_stock_alert: "LOW STOCK: " + (data.name||"") + " (" + (data.sku||"") + ") - only " + (data.stock_qty||"0") + " left",
+    };
+    if (toasts[type]) toast(toasts[type], type === "low_stock_alert" ? "error" : "info");
+    var refreshMap = {
+        repair_created: "loadRepairs", repair_updated: "loadRepairs",
+        repair_status_changed: "loadRepairs", repair_cancelled: "loadRepairs",
+        repair_part_added: "loadRepairs",
+        payment_received: "loadPayments",
+        po_created: "loadPurchaseOrders", po_status_changed: "loadPurchaseOrders",
+        po_received: "loadPurchaseOrders",
+        stock_updated: "loadParts", low_stock_alert: "loadParts",
+    };
+    var fn = refreshMap[type];
+    if (fn && typeof window[fn] === "function") window[fn]();
+}

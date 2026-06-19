@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models.part import Part
 from app.schemas.part import PartCreate, PartUpdate, PartResponse
 from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
+from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/parts", tags=["parts"])
 
@@ -144,6 +145,13 @@ async def update_part(
         setattr(part, key, value)
     await db.commit()
     await db.refresh(part)
+    await ws_manager.broadcast("part_created", {
+        "part_id": part.id,
+        "name": part.name,
+        "sku": part.sku,
+        "stock_qty": part.stock_qty,
+        "created_by": current_user.id,
+    })
     return part
 
 
