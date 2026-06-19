@@ -1,18 +1,19 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, EmailStr, Field
+
 
 class CustomerCreate(BaseModel):
-    name: str
-    phone: str
+    name: str = Field(..., min_length=1, max_length=200)
+    phone: str = Field(..., pattern=r'^\+?[\d\s\-\(\)]{7,20}$')
     email: str = ""
     address: str = ""
 
 
 class CustomerUpdate(BaseModel):
-    name: Optional[str] = None
-    phone: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    phone: Optional[str] = Field(None, pattern=r'^\+?[\d\s\-\(\)]{7,20}$')
     email: Optional[str] = None
     address: Optional[str] = None
 

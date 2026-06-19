@@ -1,11 +1,26 @@
-from fastapi import FastAPI, Request, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 import os
+from datetime import date
+
+from fastapi import FastAPI, Depends, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy import select, func as sqlfunc
+from sqlalchemy.exc import IntegrityError
 
 from app.database import init_db, get_db
-from app.routes import auth, customers, repairs, services, parts, payments, expenses, daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders
+from app.utils.auth import get_current_user
+from app.models.repair import Repair
+from app.models.payment import Payment
+from app.models.daily_sale import DailySale
+from app.models.expense import Expense
+from app.models.customer import Customer
+from app.models.part import Part
+from app.routes import (
+    auth, customers, repairs, services, parts, payments, expenses,
+    daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders,
+)
 
 app = FastAPI(
     title="Shop Management",
@@ -43,12 +58,49 @@ if os.path.exists(static_dir):
 
 
 @app.on_event("startup")
-def startup_event():
-    init_db()
+async def startup_event():
+    await init_db()
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_request: Request, exc: RequestValidationError):
+    errors = []
+    for err in exc.errors():
+        loc = ".".join(str(p) for p in err.get("loc", []))
+        msg = err.get("msg", "Invalid value")
+        errors.append(f"{loc}: {msg}" if loc else msg)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"error": "Validation failed", "details": errors},
+    )
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(_request: Request, exc: IntegrityError):
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"error": "Database constraint violation. The record may already exist or be referenced elsewhere."},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(_request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"error": "An internal server error occurred"},
+    )
 
 
 @app.get("/", include_in_schema=False)
-def root():
+async def root():
     index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -56,68 +108,102 @@ def root():
 
 
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "healthy", "service": "Shop Management API"}
 
 
 @app.get("/api/dashboard")
-def dashboard(
+async def dashboard(
+    current_user=Depends(get_current_user),
     db=Depends(get_db),
 ):
-    from datetime import date
-    from sqlalchemy import func as sqlfunc
-    from app.models.repair import Repair
-    from app.models.payment import Payment
-    from app.models.daily_sale import DailySale
-    from app.models.expense import Expense
-    from app.models.customer import Customer
-    from app.models.part import Part
-
     today = date.today().isoformat()
 
-    total_repairs = db.query(Repair).count()
-    pending = db.query(Repair).filter(Repair.status.in_(["received", "diagnosed"])).count()
-    in_progress = db.query(Repair).filter(Repair.status.in_(["waiting_parts", "repairing", "testing"])).count()
+    total_repairs = (await db.execute(select(sqlfunc.count(Repair.id)))).scalar() or 0
+    pending = (
+        await db.execute(
+            select(sqlfunc.count(Repair.id)).where(
+                Repair.status.in_(["received", "diagnosed"])
+            )
+        )
+    ).scalar() or 0
+    in_progress = (
+        await db.execute(
+            select(sqlfunc.count(Repair.id)).where(
+                Repair.status.in_(["waiting_parts", "repairing", "testing"])
+            )
+        )
+    ).scalar() or 0
     completed_today = (
-        db.query(Repair)
-        .filter(Repair.status == "delivered", Repair.updated_at >= today, Repair.updated_at <= today + " 23:59:59")
-        .count()
-    )
+        await db.execute(
+            select(sqlfunc.count(Repair.id)).where(
+                Repair.status == "delivered",
+                Repair.updated_at >= today,
+                Repair.updated_at <= today + " 23:59:59",
+            )
+        )
+    ).scalar() or 0
 
     repair_payments = (
-        db.query(Payment)
-        .filter(Payment.paid_at >= today, Payment.paid_at <= today + " 23:59:59")
+        (
+            await db.execute(
+                select(Payment).where(
+                    Payment.paid_at >= today, Payment.paid_at <= today + " 23:59:59"
+                )
+            )
+        )
+        .scalars()
         .all()
     )
     total_revenue = sum(p.amount for p in repair_payments)
 
     manual_sales = (
-        db.query(DailySale)
-        .filter(DailySale.date == today)
+        (
+            await db.execute(
+                select(DailySale).where(DailySale.date == today)
+            )
+        )
+        .scalars()
         .all()
     )
     total_revenue += sum(s.amount for s in manual_sales)
 
     expenses = (
-        db.query(Expense)
-        .filter(Expense.date == today)
+        (
+            await db.execute(
+                select(Expense).where(Expense.date == today)
+            )
+        )
+        .scalars()
         .all()
     )
     total_expenses = sum(e.amount for e in expenses)
 
-    low_stock_parts = db.query(Part).filter(Part.stock_qty <= Part.min_stock_alert).all()
-
-    recent_repairs = (
-        db.query(Repair)
-        .order_by(Repair.created_at.desc())
-        .limit(5)
+    low_stock_parts = (
+        (
+            await db.execute(
+                select(Part).where(Part.stock_qty <= Part.min_stock_alert)
+            )
+        )
+        .scalars()
         .all()
     )
 
-    from app.models.customer import Customer as Cust
+    recent_repairs = (
+        (
+            await db.execute(
+                select(Repair).order_by(Repair.created_at.desc()).limit(5)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
     recent_list = []
     for r in recent_repairs:
-        cust = db.query(Cust).filter(Cust.id == r.customer_id).first()
+        cust = (
+            await db.execute(select(Customer).where(Customer.id == r.customer_id))
+        ).scalar_one_or_none()
         recent_list.append({
             "id": r.id,
             "customer_name": cust.name if cust else "Unknown",
@@ -127,7 +213,13 @@ def dashboard(
         })
 
     low_stock_list = [
-        {"id": p.id, "name": p.name, "model": p.model, "stock_qty": p.stock_qty, "min_stock_alert": p.min_stock_alert}
+        {
+            "id": p.id,
+            "name": p.name,
+            "model": p.model,
+            "stock_qty": p.stock_qty,
+            "min_stock_alert": p.min_stock_alert,
+        }
         for p in low_stock_parts
     ]
 

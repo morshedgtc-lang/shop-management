@@ -1,11 +1,17 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+PAYMENT_METHODS = Literal[
+    "cash", "bkash", "nagad", "rocket", "card",
+    "bank_transfer", "other",
+]
 
 
 class PaymentCreate(BaseModel):
     repair_id: int
-    amount: float
+    amount: float = Field(..., ge=0)
     currency: str = "USD"
     method: str = "cash"
     notes: str = ""

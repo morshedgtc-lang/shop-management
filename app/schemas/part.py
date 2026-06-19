@@ -1,34 +1,38 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, Field
+
+
 class PartCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     model: str = ""
     sku: Optional[str] = None
     supplier_barcode: str = ""
-    stock_qty: int = 0
-    unit_price: float = 0
-    selling_price: float = 0
+    stock_qty: int = Field(0, ge=0)
+    unit_price: float = Field(0, ge=0)
+    selling_price: float = Field(0, ge=0)
     currency: str = "USD"
-    min_stock_alert: int = 5
+    min_stock_alert: int = Field(5, ge=0)
     brand_id: Optional[int] = None
     model_id: Optional[int] = None
     part_type_id: Optional[int] = None
 
+
 class PartUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
     model: Optional[str] = None
     sku: Optional[str] = None
     supplier_barcode: Optional[str] = None
-    stock_qty: Optional[int] = None
-    unit_price: Optional[float] = None
-    selling_price: Optional[float] = None
+    stock_qty: Optional[int] = Field(None, ge=0)
+    unit_price: Optional[float] = Field(None, ge=0)
+    selling_price: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = None
-    min_stock_alert: Optional[int] = None
+    min_stock_alert: Optional[int] = Field(None, ge=0)
     brand_id: Optional[int] = None
     model_id: Optional[int] = None
     part_type_id: Optional[int] = None
+
 
 class PartResponse(BaseModel):
     id: int
@@ -45,5 +49,6 @@ class PartResponse(BaseModel):
     model_id: Optional[int] = None
     part_type_id: Optional[int] = None
     created_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True

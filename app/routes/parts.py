@@ -1,48 +1,78 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func as sqlfunc, update as sqlupdate
 from typing import Optional
 
 from app.database import get_db
 from app.models.part import Part
-from app.models.user import User
 from app.schemas.part import PartCreate, PartUpdate, PartResponse
-from app.utils.auth import get_current_user, require_admin, require_manager_or_admin
+from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
 
 router = APIRouter(prefix="/api/parts", tags=["parts"])
 
 
-def generate_sku(db: Session) -> str:
-    last = db.query(Part).order_by(Part.id.desc()).first()
-    num = (last.id + 1) if last else 1
-    return f"PART-{num:03d}"
+async def generate_sku(db) -> str:
+    result = await db.execute(select(sqlfunc.max(Part.id)))
+    max_id = result.scalar() or 0
+    return f"PART-{max_id + 1:03d}"
 
 
 @router.get("", response_model=dict)
-def list_parts(
+async def list_parts(
     search: Optional[str] = Query(None),
     brand_id: Optional[int] = Query(None),
     model_id: Optional[int] = Query(None),
     part_type_id: Optional[int] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    query = db.query(Part)
+    query = select(Part)
     if search:
         term = f"%{search}%"
-        query = query.filter(
-            (Part.name.ilike(term)) | (Part.model.ilike(term)) |
-            (Part.sku.ilike(term)) | (Part.supplier_barcode.ilike(term))
+        query = query.where(
+            (Part.name.ilike(term)) | (Part.model.ilike(term))
+            | (Part.sku.ilike(term)) | (Part.supplier_barcode.ilike(term))
         )
     if brand_id:
-        query = query.filter(Part.brand_id == brand_id)
+        query = query.where(Part.brand_id == brand_id)
     if model_id:
-        query = query.filter(Part.model_id == model_id)
+        query = query.where(Part.model_id == model_id)
     if part_type_id:
-        query = query.filter(Part.part_type_id == part_type_id)
-    total = query.count()
-    parts = query.offset((page - 1) * limit).limit(limit).all()
+        query = query.where(Part.part_type_id == part_type_id)
+
+    count_stmt = select(sqlfunc.count(Part.id))
+    if search:
+        term = f"%{search}%"
+        count_stmt = count_stmt.where(
+            (Part.name.ilike(term)) | (Part.model.ilike(term))
+            | (Part.sku.ilike(term)) | (Part.supplier_barcode.ilike(term))
+        )
+    if brand_id:
+        count_stmt = count_stmt.where(Part.brand_id == brand_id)
+    if model_id:
+        count_stmt = count_stmt.where(Part.model_id == model_id)
+    if part_type_id:
+        count_stmt = count_stmt.where(Part.part_type_id == part_type_id)
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    list_query = select(Part)
+    if search:
+        list_query = list_query.where(
+            (Part.name.ilike(term)) | (Part.model.ilike(term))
+            | (Part.sku.ilike(term)) | (Part.supplier_barcode.ilike(term))
+        )
+    if brand_id:
+        list_query = list_query.where(Part.brand_id == brand_id)
+    if model_id:
+        list_query = list_query.where(Part.model_id == model_id)
+    if part_type_id:
+        list_query = list_query.where(Part.part_type_id == part_type_id)
+    parts = (
+        (await db.execute(list_query.offset((page - 1) * limit).limit(limit)))
+        .scalars()
+        .all()
+    )
     return {
         "items": [PartResponse.model_validate(p) for p in parts],
         "total": total, "page": page, "limit": limit,
@@ -51,75 +81,80 @@ def list_parts(
 
 
 @router.get("/low-stock", response_model=list[PartResponse])
-def list_low_stock_parts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+async def list_low_stock_parts(
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    parts = db.query(Part).filter(Part.stock_qty <= Part.min_stock_alert).all()
-    return parts
+    rows = (
+        await db.execute(
+            select(Part).where(Part.stock_qty <= Part.min_stock_alert)
+        )
+    ).scalars().all()
+    return rows
 
 
 @router.get("/scan/{barcode}", response_model=PartResponse)
-def scan_barcode(barcode: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    part = db.query(Part).filter(
-        (Part.supplier_barcode == barcode) | (Part.sku == barcode)
-    ).first()
+async def scan_barcode(barcode: str, db=Depends(get_db), current_user=Depends(get_current_user)):
+    result = await db.execute(
+        select(Part).where((Part.supplier_barcode == barcode) | (Part.sku == barcode))
+    )
+    part = result.scalar_one_or_none()
     if not part:
         raise HTTPException(status_code=404, detail="No part found with this barcode")
     return part
 
 
 @router.post("", response_model=PartResponse, status_code=status.HTTP_201_CREATED)
-def create_part(
+async def create_part(
     data: PartCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin),
+    db=Depends(get_db),
+    current_user=Depends(require_reseller_or_admin),
 ):
     sku = data.sku
     if not sku:
-        sku = generate_sku(db)
+        sku = await generate_sku(db)
     else:
-        existing = db.query(Part).filter(Part.sku == sku).first()
+        existing = (await db.execute(select(Part).where(Part.sku == sku))).scalar_one_or_none()
         if existing:
             raise HTTPException(status_code=400, detail=f"SKU '{sku}' already exists")
     part = Part(**data.model_dump())
     part.sku = sku
     db.add(part)
-    db.commit()
-    db.refresh(part)
+    await db.commit()
+    await db.refresh(part)
     return part
 
 
 @router.put("/{part_id}", response_model=PartResponse)
-def update_part(
+async def update_part(
     part_id: int,
     data: PartUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin),
+    db=Depends(get_db),
+    current_user=Depends(require_reseller_or_admin),
 ):
-    part = db.query(Part).filter(Part.id == part_id).first()
+    part = (await db.execute(select(Part).where(Part.id == part_id))).scalar_one_or_none()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
     update_data = data.model_dump(exclude_unset=True)
     if "sku" in update_data and update_data["sku"] and update_data["sku"] != part.sku:
-        existing = db.query(Part).filter(Part.sku == update_data["sku"]).first()
+        existing = (await db.execute(select(Part).where(Part.sku == update_data["sku"]))).scalar_one_or_none()
         if existing:
             raise HTTPException(status_code=400, detail=f"SKU '{update_data['sku']}' already exists")
     for key, value in update_data.items():
         setattr(part, key, value)
-    db.commit()
-    db.refresh(part)
+    await db.commit()
+    await db.refresh(part)
     return part
 
 
 @router.delete("/{part_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_part(
+async def delete_part(
     part_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    db=Depends(get_db),
+    current_user=Depends(require_admin),
 ):
-    part = db.query(Part).filter(Part.id == part_id).first()
+    part = (await db.execute(select(Part).where(Part.id == part_id))).scalar_one_or_none()
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
-    db.delete(part)
-    db.commit()
+    await db.delete(part)
+    await db.commit()

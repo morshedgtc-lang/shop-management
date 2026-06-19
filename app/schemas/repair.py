@@ -1,29 +1,94 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+REPAIR_STATUSES = [
+    "received", "diagnosed", "waiting_parts",
+    "repairing", "testing", "delivered", "cancelled",
+]
+CANCELLABLE_STATUSES = {"received", "diagnosed", "waiting_parts", "repairing"}
+VALID_TRANSITIONS = {
+    "received": {"diagnosed"},
+    "diagnosed": {"waiting_parts", "repairing"},
+    "waiting_parts": {"repairing"},
+    "repairing": {"testing"},
+    "testing": {"delivered"},
+    "delivered": set(),
+    "cancelled": set(),
+}
+
+
+def luhn_checksum(digits: str) -> bool:
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        n = int(d)
+        if i % 2 == 1:
+            n *= 2
+            if n > 9:
+                n -= 9
+        total += n
+    return total % 10 == 0
+
 
 class RepairCreate(BaseModel):
     customer_id: int
-    model: str
-    issues: str
+    model: str = Field(..., min_length=1, max_length=200)
+    issues: str = Field(..., min_length=1)
     imei: str = ""
-    estimated_cost: float = 0
-    service_fee: float = 0
+    estimated_cost: float = Field(0, ge=0)
+    service_fee: float = Field(0, ge=0)
     assigned_to: Optional[int] = None
     notes: str = ""
 
+    @field_validator("imei")
+    @classmethod
+    def validate_imei(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            return ""
+        if not cleaned.isdigit() or len(cleaned) != 15:
+            raise ValueError("IMEI must be exactly 15 digits")
+        if not luhn_checksum(cleaned):
+            raise ValueError("IMEI failed Luhn checksum validation")
+        return cleaned
+
+
 class RepairUpdate(BaseModel):
-    model: Optional[str] = None
-    issues: Optional[str] = None
+    model: Optional[str] = Field(None, min_length=1, max_length=200)
+    issues: Optional[str] = Field(None, min_length=1)
     imei: Optional[str] = None
-    estimated_cost: Optional[float] = None
-    actual_cost: Optional[float] = None
-    service_fee: Optional[float] = None
+    estimated_cost: Optional[float] = Field(None, ge=0)
+    actual_cost: Optional[float] = Field(None, ge=0)
+    service_fee: Optional[float] = Field(None, ge=0)
     assigned_to: Optional[int] = None
     notes: Optional[str] = None
 
+    @field_validator("imei")
+    @classmethod
+    def validate_imei(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return v
+        cleaned = v.strip()
+        if not cleaned.isdigit() or len(cleaned) != 15:
+            raise ValueError("IMEI must be exactly 15 digits")
+        if not luhn_checksum(cleaned):
+            raise ValueError("IMEI failed Luhn checksum validation")
+        return cleaned
+
+
 class RepairStatusUpdate(BaseModel):
     status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in REPAIR_STATUSES:
+            raise ValueError(
+                f"Invalid status '{v}'. Must be one of: {', '.join(REPAIR_STATUSES)}"
+            )
+        return v
+
 
 class RepairPartResponse(BaseModel):
     id: int
@@ -33,8 +98,10 @@ class RepairPartResponse(BaseModel):
     selling_price: float
     returned_qty: int = 0
     part_name: str = ""
+
     class Config:
         from_attributes = True
+
 
 class RepairPaymentResponse(BaseModel):
     id: int
@@ -43,8 +110,10 @@ class RepairPaymentResponse(BaseModel):
     method: str
     notes: str
     paid_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
+
 
 class RepairResponse(BaseModel):
     id: int
@@ -69,5 +138,6 @@ class RepairResponse(BaseModel):
     total_parts_cost: float = 0
     total_payments: float = 0
     balance: float = 0
+
     class Config:
         from_attributes = True

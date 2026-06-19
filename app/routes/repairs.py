@@ -1,6 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func as sqlfunc
 from typing import Optional
 
 from app.database import get_db
@@ -11,94 +11,81 @@ from app.models.part import Part
 from app.models.repair_part import RepairPart
 from app.models.payment import Payment
 from app.schemas.repair import (
-    RepairCreate,
-    RepairUpdate,
-    RepairStatusUpdate,
-    RepairResponse,
-    RepairPartResponse,
-    RepairPaymentResponse,
+    RepairCreate, RepairUpdate, RepairStatusUpdate, RepairResponse,
+    RepairPartResponse, RepairPaymentResponse, VALID_TRANSITIONS,
+    CANCELLABLE_STATUSES,
 )
-from app.utils.auth import get_current_user, require_manager_or_admin
+from app.utils.auth import get_current_user, require_reseller_or_admin
 
 router = APIRouter(prefix="/api/repairs", tags=["repairs"])
 
-VALID_STATUSES = [
-    "received",
-    "diagnosed",
-    "waiting_parts",
-    "repairing",
-    "testing",
-    "delivered",
-]
 
+async def build_repair_response(r: Repair, db) -> RepairResponse:
+    from app.models.customer import Customer
+    from app.models.user import User
+    from app.models.repair_part import RepairPart
+    cust = await db.get(Customer, r.customer_id)
+    customer_name = cust.name if cust else ""
+    assigned_user = await db.get(User, r.assigned_to) if r.assigned_to else None
+    assigned_name = assigned_user.name if assigned_user else ""
+    creator = await db.get(User, r.created_by)
+    creator_name = creator.name if creator else ""
+    rps = (await db.execute(select(RepairPart).where(RepairPart.repair_id == r.id))).scalars().all()
+    total_parts_cost = sum(rp.qty * rp.unit_price for rp in rps)
 
-def build_repair_response(r: Repair, db: Session) -> RepairResponse:
-    customer_name = r.customer.name if r.customer else ""
-    assigned_name = r.assigned_user.name if r.assigned_user else ""
-    creator_name = r.creator.name if r.creator else ""
-
-    total_parts_cost = sum(rp.qty * rp.unit_price for rp in r.repair_parts)
-    total_payments = (
-        db.query(Payment)
-        .filter(Payment.repair_id == r.id)
-        .with_entities(Payment.amount)
-        .all()
+    pay_result = await db.execute(
+        select(sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0)).where(
+            Payment.repair_id == r.id
+        )
     )
-    total_payments = sum(p[0] for p in total_payments)
+    total_payments = float(pay_result.scalar() or 0)
 
+    from app.models.part import Part
+    part_ids = list(set(rp.part_id for rp in rps if rp.part_id))
+    part_map = {}
+    if part_ids:
+        pr = await db.execute(select(Part).where(Part.id.in_(part_ids)))
+        part_map = {p.id: p.name for p in pr.scalars().all()}
     parts = [
         RepairPartResponse(
-            id=rp.id,
-            part_id=rp.part_id,
-            qty=rp.qty,
-            unit_price=rp.unit_price,
-            selling_price=rp.selling_price,
+            id=rp.id, part_id=rp.part_id, qty=rp.qty,
+            unit_price=rp.unit_price, selling_price=rp.selling_price,
             returned_qty=rp.returned_qty,
-            part_name=rp.part.name if rp.part else "",
+            part_name=part_map.get(rp.part_id) or "",
         )
-        for rp in r.repair_parts
+        for rp in rps
     ]
 
+    pay_rows = (
+        (await db.execute(select(Payment).where(Payment.repair_id == r.id)))
+        .scalars()
+        .all()
+    )
     payments = [
         RepairPaymentResponse(
-            id=p.id,
-            amount=p.amount,
-            currency=p.currency,
-            method=p.method,
-            notes=p.notes,
-            paid_at=p.paid_at,
+            id=p.id, amount=p.amount, currency=p.currency,
+            method=p.method, notes=p.notes, paid_at=p.paid_at,
         )
-        for p in db.query(Payment).filter(Payment.repair_id == r.id).all()
+        for p in pay_rows
     ]
 
     return RepairResponse(
-        id=r.id,
-        customer_id=r.customer_id,
-        customer_name=customer_name,
-        assigned_to=r.assigned_to,
-        assigned_user_name=assigned_name,
-        created_by=r.created_by,
-        creator_name=creator_name,
-        status=r.status,
-        model=r.model,
-        issues=r.issues,
-        imei=r.imei,
-        estimated_cost=r.estimated_cost,
-        actual_cost=r.actual_cost,
-        service_fee=r.service_fee or 0,
-        notes=r.notes,
-        created_at=r.created_at,
-        updated_at=r.updated_at,
-        parts=parts,
-        payments=payments,
+        id=r.id, customer_id=r.customer_id, customer_name=customer_name,
+        assigned_to=r.assigned_to, assigned_user_name=assigned_name,
+        created_by=r.created_by, creator_name=creator_name,
+        status=r.status, model=r.model, issues=r.issues,
+        imei=r.imei, estimated_cost=r.estimated_cost,
+        actual_cost=r.actual_cost, service_fee=r.service_fee or 0,
+        notes=r.notes, created_at=r.created_at, updated_at=r.updated_at,
+        parts=parts, payments=payments,
         total_parts_cost=total_parts_cost,
         total_payments=total_payments,
-        balance=r.actual_cost - total_payments,
+        balance=(total_parts_cost + (r.service_fee or 0)) - total_payments,
     )
 
 
 @router.get("", response_model=dict)
-def list_repairs(
+async def list_repairs(
     status_filter: Optional[str] = Query(None, alias="status"),
     assigned_to: Optional[int] = Query(None),
     date_from: Optional[str] = Query(None),
@@ -106,321 +93,343 @@ def list_repairs(
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    query = db.query(Repair)
+    query = select(Repair)
     if status_filter:
-        query = query.filter(Repair.status == status_filter)
+        query = query.where(Repair.status == status_filter)
     if assigned_to:
-        query = query.filter(Repair.assigned_to == assigned_to)
+        query = query.where(Repair.assigned_to == assigned_to)
     if date_from:
-        query = query.filter(Repair.created_at >= date_from)
+        query = query.where(Repair.created_at >= date_from)
     if date_to:
-        query = query.filter(Repair.created_at <= date_to + " 23:59:59")
+        query = query.where(Repair.created_at <= date_to + " 23:59:59")
     if search:
-        search_term = f"%{search}%"
-        query = query.join(Customer, Repair.customer_id == Customer.id).filter(
-            (Customer.name.ilike(search_term))
-            | (Repair.model.ilike(search_term))
-            | (Repair.imei.ilike(search_term))
-            | (Repair.issues.ilike(search_term))
+        term = f"%{search}%"
+        query = query.join(Customer, Repair.customer_id == Customer.id).where(
+            (Customer.name.ilike(term))
+            | (Repair.model.ilike(term))
+            | (Repair.imei.ilike(term))
+            | (Repair.issues.ilike(term))
         )
-    total = query.count()
-    repairs = (
-        query.order_by(Repair.created_at.desc())
-        .offset((page - 1) * limit)
-        .limit(limit)
+    total = (await db.execute(select(sqlfunc.count()).select_from(Repair).where(query.whereclause) if query.whereclause is not None else select(sqlfunc.count()).select_from(Repair))).scalar() or 0
+
+    count_stmt = select(sqlfunc.count(Repair.id))
+    if status_filter:
+        count_stmt = count_stmt.where(Repair.status == status_filter)
+    if assigned_to:
+        count_stmt = count_stmt.where(Repair.assigned_to == assigned_to)
+    if date_from:
+        count_stmt = count_stmt.where(Repair.created_at >= date_from)
+    if date_to:
+        count_stmt = count_stmt.where(Repair.created_at <= date_to + " 23:59:59")
+    if search:
+        term = f"%{search}%"
+        count_stmt = count_stmt.where(
+            Repair.id.in_(
+                select(Repair.id).join(Customer, Repair.customer_id == Customer.id).where(
+                    (Customer.name.ilike(term)) | (Repair.model.ilike(term))
+                    | (Repair.imei.ilike(term)) | (Repair.issues.ilike(term))
+                )
+            )
+        )
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    list_query = select(Repair)
+    if status_filter:
+        list_query = list_query.where(Repair.status == status_filter)
+    if assigned_to:
+        list_query = list_query.where(Repair.assigned_to == assigned_to)
+    if date_from:
+        list_query = list_query.where(Repair.created_at >= date_from)
+    if date_to:
+        list_query = list_query.where(Repair.created_at <= date_to + " 23:59:59")
+    if search:
+        term = f"%{search}%"
+        list_query = list_query.join(Customer, Repair.customer_id == Customer.id).where(
+            (Customer.name.ilike(term)) | (Repair.model.ilike(term))
+            | (Repair.imei.ilike(term)) | (Repair.issues.ilike(term))
+        )
+    rows = (
+        (await db.execute(
+            list_query.order_by(Repair.created_at.desc())
+            .offset((page - 1) * limit).limit(limit)
+        ))
+        .scalars()
+        .unique()
         .all()
     )
-    items = [build_repair_response(r, db) for r in repairs]
+    items = [await build_repair_response(r, db) for r in rows]
     return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "limit": limit,
-        "pages": (total + limit - 1) // limit,
+        "items": items, "total": total, "page": page,
+        "limit": limit, "pages": (total + limit - 1) // limit,
     }
 
 
 @router.post("", response_model=RepairResponse, status_code=status.HTTP_201_CREATED)
-def create_repair(
+async def create_repair(
     data: RepairCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    customer = db.query(Customer).filter(Customer.id == data.customer_id).first()
-    if not customer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found"
-        )
+    cust = await db.execute(select(Customer).where(Customer.id == data.customer_id))
+    if not cust.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
     if data.assigned_to:
-        assigned_user = db.query(User).filter(User.id == data.assigned_to).first()
-        if not assigned_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Assigned user not found"
-            )
+        u = await db.execute(select(User).where(User.id == data.assigned_to))
+        if not u.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assigned user not found")
     repair = Repair(
-        customer_id=data.customer_id,
-        created_by=current_user.id,
-        model=data.model,
-        issues=data.issues,
-        imei=data.imei,
-        estimated_cost=data.estimated_cost,
-        assigned_to=data.assigned_to,
-        notes=data.notes,
-        service_fee=data.service_fee,
+        customer_id=data.customer_id, created_by=current_user.id,
+        model=data.model, issues=data.issues, imei=data.imei,
+        estimated_cost=data.estimated_cost, assigned_to=data.assigned_to,
+        notes=data.notes, service_fee=data.service_fee,
     )
     db.add(repair)
-    db.commit()
-    db.refresh(repair)
-    return build_repair_response(repair, db)
+    await db.commit()
+    await db.refresh(repair)
+    return await build_repair_response(repair, db)
 
 
 @router.get("/{repair_id}", response_model=RepairResponse)
-def get_repair(
+async def get_repair(
     repair_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    repair = result.scalar_one_or_none()
     if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
-        )
-    return build_repair_response(repair, db)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    return await build_repair_response(repair, db)
 
 
 @router.put("/{repair_id}", response_model=RepairResponse)
-def update_repair(
+async def update_repair(
     repair_id: int,
     data: RepairUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    repair = result.scalar_one_or_none()
     if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
-        )
-    update_data = data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(repair, key, value)
-    db.commit()
-    db.refresh(repair)
-    return build_repair_response(repair, db)
+    await db.commit()
+    await db.refresh(repair)
+    return await build_repair_response(repair, db)
 
 
 @router.put("/{repair_id}/status", response_model=RepairResponse)
-def update_repair_status(
+async def update_repair_status(
     repair_id: int,
     data: RepairStatusUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    if data.status not in VALID_STATUSES:
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    repair = result.scalar_one_or_none()
+    if not repair:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+
+    allowed = VALID_TRANSITIONS.get(repair.status, set())
+    if data.status not in allowed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status. Must be one of: {', '.join(VALID_STATUSES)}",
-        )
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
-    if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
+            detail=f"Invalid transition from '{repair.status}' to '{data.status}'",
         )
     repair.status = data.status
-    db.commit()
-    db.refresh(repair)
-    return build_repair_response(repair, db)
+    await db.commit()
+    await db.refresh(repair)
+    return await build_repair_response(repair, db)
 
 
 @router.get("/{repair_id}/parts", response_model=list[RepairPartResponse])
-def list_repair_parts(
+async def list_repair_parts(
     repair_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
-    if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
-        )
-    parts = (
-        db.query(RepairPart)
-        .filter(RepairPart.repair_id == repair_id)
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    rows = (
+        (await db.execute(select(RepairPart).where(RepairPart.repair_id == repair_id)))
+        .scalars()
         .all()
     )
+    from app.models.part import Part
+    part_ids = list(set(rp.part_id for rp in rows if rp.part_id))
+    part_map = {}
+    if part_ids:
+        pr = await db.execute(select(Part).where(Part.id.in_(part_ids)))
+        part_map = {p.id: p.name for p in pr.scalars().all()}
     return [
         RepairPartResponse(
-            id=rp.id,
-            part_id=rp.part_id,
-            qty=rp.qty,
-            unit_price=rp.unit_price,
-            selling_price=rp.selling_price,
+            id=rp.id, part_id=rp.part_id, qty=rp.qty,
+            unit_price=rp.unit_price, selling_price=rp.selling_price,
             returned_qty=rp.returned_qty,
-            part_name=rp.part.name if rp.part else "",
+            part_name=part_map.get(rp.part_id) or "",
         )
-        for rp in parts
+        for rp in rows
     ]
 
 
-@router.post(
-    "/{repair_id}/parts", response_model=RepairPartResponse, status_code=status.HTTP_201_CREATED
-)
-def add_repair_part(
+@router.post("/{repair_id}/parts", response_model=RepairPartResponse, status_code=status.HTTP_201_CREATED)
+async def add_repair_part(
     repair_id: int,
     part_id: int = Query(...),
     qty: int = Query(1, ge=1),
     selling_price: float = Query(0),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
+    repair = (await db.execute(select(Repair).where(Repair.id == repair_id))).scalar_one_or_none()
     if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
-        )
-    part = db.query(Part).filter(Part.id == part_id).first()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    part = (await db.execute(select(Part).where(Part.id == part_id).with_for_update())).scalar_one_or_none()
     if not part:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Part not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Part not found")
     if part.stock_qty < qty:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Insufficient stock. Available: {part.stock_qty}",
         )
     part.stock_qty -= qty
+    final_price = selling_price if selling_price > 0 else part.selling_price
     repair_part = RepairPart(
-        repair_id=repair_id,
-        part_id=part_id,
-        qty=qty,
-        unit_price=part.unit_price,
-        selling_price=selling_price,
+        repair_id=repair_id, part_id=part_id, qty=qty,
+        unit_price=part.unit_price, selling_price=final_price,
     )
     db.add(repair_part)
-    db.commit()
-    db.refresh(repair_part)
+    await db.commit()
+    await db.refresh(repair_part)
     return RepairPartResponse(
-        id=repair_part.id,
-        part_id=repair_part.part_id,
-        qty=repair_part.qty,
-        unit_price=repair_part.unit_price,
-        selling_price=repair_part.selling_price,
-        returned_qty=repair_part.returned_qty,
-        part_name=part.name,
+        id=repair_part.id, part_id=repair_part.part_id, qty=repair_part.qty,
+        unit_price=repair_part.unit_price, selling_price=repair_part.selling_price,
+        returned_qty=repair_part.returned_qty, part_name=part.name,
     )
 
 
-@router.delete(
-    "/{repair_id}/parts/{rp_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-def remove_repair_part(
+@router.delete("/{repair_id}/parts/{rp_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_repair_part(
     repair_id: int,
     rp_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     repair_part = (
-        db.query(RepairPart)
-        .filter(RepairPart.id == rp_id, RepairPart.repair_id == repair_id)
-        .first()
-    )
-    if not repair_part:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair part not found"
+        await db.execute(
+            select(RepairPart).where(
+                RepairPart.id == rp_id, RepairPart.repair_id == repair_id
+            )
         )
-    part = db.query(Part).filter(Part.id == repair_part.part_id).first()
+    ).scalar_one_or_none()
+    if not repair_part:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair part not found")
+    part = (await db.execute(select(Part).where(Part.id == repair_part.part_id))).scalar_one_or_none()
     if part:
         part.stock_qty += repair_part.qty
-    db.delete(repair_part)
-    db.commit()
+    await db.delete(repair_part)
+    await db.commit()
 
 
 @router.get("/{repair_id}/payments", response_model=list[RepairPaymentResponse])
-def list_repair_payments(
+async def list_repair_payments(
     repair_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
-    if not repair:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found"
-        )
-    payments = db.query(Payment).filter(Payment.repair_id == repair_id).all()
+    result = await db.execute(select(Repair).where(Repair.id == repair_id))
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair not found")
+    rows = (
+        (await db.execute(select(Payment).where(Payment.repair_id == repair_id)))
+        .scalars()
+        .all()
+    )
     return [
         RepairPaymentResponse(
-            id=p.id,
-            amount=p.amount,
-            currency=p.currency,
-            method=p.method,
-            notes=p.notes,
-            paid_at=p.paid_at,
+            id=p.id, amount=p.amount, currency=p.currency,
+            method=p.method, notes=p.notes, paid_at=p.paid_at,
         )
-        for p in payments
+        for p in rows
     ]
 
 
 @router.post("/{repair_id}/parts/{rp_id}/return", response_model=RepairPartResponse)
-def return_repair_part(
+async def return_repair_part(
     repair_id: int,
     rp_id: int,
     qty: int = Query(1, ge=1),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    repair_part = db.query(RepairPart).filter(
-        RepairPart.id == rp_id, RepairPart.repair_id == repair_id
-    ).first()
+    repair_part = (
+        await db.execute(
+            select(RepairPart).where(
+                RepairPart.id == rp_id, RepairPart.repair_id == repair_id
+            )
+        )
+    ).scalar_one_or_none()
     if not repair_part:
         raise HTTPException(status_code=404, detail="Repair part not found")
     available = repair_part.qty - repair_part.returned_qty
     if qty > available:
-        raise HTTPException(status_code=400, detail=f"Cannot return {qty}. Only {available} available to return")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot return {qty}. Only {available} available to return",
+        )
     repair_part.returned_qty += qty
-    part = db.query(Part).filter(Part.id == repair_part.part_id).first()
+    part = (await db.execute(select(Part).where(Part.id == repair_part.part_id))).scalar_one_or_none()
     if part:
         part.stock_qty += qty
-    db.commit()
-    db.refresh(repair_part)
+    await db.commit()
+    await db.refresh(repair_part)
     return RepairPartResponse(
         id=repair_part.id, part_id=repair_part.part_id,
         qty=repair_part.qty, unit_price=repair_part.unit_price,
         selling_price=repair_part.selling_price,
         returned_qty=repair_part.returned_qty,
-        part_name=repair_part.part.name if repair_part.part else "",
+        part_name=(await db.execute(select(Part.name).where(Part.id == repair_part.part_id))).scalar() or "",
     )
 
 
 @router.post("/{repair_id}/cancel", response_model=RepairResponse)
-def cancel_repair(
+async def cancel_repair(
     repair_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_manager_or_admin),
+    db=Depends(get_db),
+    current_user=Depends(require_reseller_or_admin),
 ):
-    repair = db.query(Repair).filter(Repair.id == repair_id).first()
+    repair = (await db.execute(select(Repair).where(Repair.id == repair_id))).scalar_one_or_none()
     if not repair:
         raise HTTPException(status_code=404, detail="Repair not found")
-    if repair.status == "delivered":
-        raise HTTPException(status_code=400, detail="Cannot cancel a delivered repair")
-    for rp in repair.repair_parts:
+    if repair.status not in CANCELLABLE_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only cancel repairs with status: {', '.join(CANCELLABLE_STATUSES)}",
+        )
+    rps = (await db.execute(select(RepairPart).where(RepairPart.repair_id == repair_id))).scalars().all()
+    for rp in rps:
         remaining = rp.qty - rp.returned_qty
         if remaining > 0:
             rp.returned_qty = rp.qty
-            part = db.query(Part).filter(Part.id == rp.part_id).first()
+            part = (await db.execute(select(Part).where(Part.id == rp.part_id))).scalar_one_or_none()
             if part:
                 part.stock_qty += remaining
-    from app.models.payment import Payment
-    payments = db.query(Payment).filter(Payment.repair_id == repair_id).all()
-    for p in payments:
+    pay_rows = (await db.execute(select(Payment).where(Payment.repair_id == repair_id))).scalars().all()
+    for p in pay_rows:
         if p.amount > 0:
             refund = Payment(
                 repair_id=repair_id, amount=-p.amount, currency=p.currency,
-                method="cash", notes=f"Refund for cancelled repair", created_by=current_user.id,
+                method="cash", notes=f"Refund for cancelled repair",
+                created_by=current_user.id,
             )
             db.add(refund)
     repair.status = "cancelled"
-    db.commit()
-    db.refresh(repair)
-    return build_repair_response(repair, db)
+    await db.commit()
+    await db.refresh(repair)
+    return await build_repair_response(repair, db)

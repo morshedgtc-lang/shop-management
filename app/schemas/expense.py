@@ -1,10 +1,11 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, Field
+
 
 class ExpenseCreate(BaseModel):
-    amount: float
+    amount: float = Field(..., ge=0)
     category_id: int
     currency: str = "USD"
     note: str = ""
@@ -12,7 +13,7 @@ class ExpenseCreate(BaseModel):
 
 
 class ExpenseUpdate(BaseModel):
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(None, ge=0)
     category_id: Optional[int] = None
     currency: Optional[str] = None
     note: Optional[str] = None
@@ -20,7 +21,7 @@ class ExpenseUpdate(BaseModel):
 
 
 class ExpenseCategoryCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=100)
     icon: str = ""
 
 

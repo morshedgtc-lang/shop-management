@@ -1,19 +1,20 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, Field
+
 
 class ServiceCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=200)
     description: str = ""
-    default_price: float = 0
+    default_price: float = Field(0, ge=0)
     currency: str = "USD"
 
 
 class ServiceUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
-    default_price: Optional[float] = None
+    default_price: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = None
     active: Optional[bool] = None
 
