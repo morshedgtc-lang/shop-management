@@ -14,7 +14,8 @@ from app.schemas.purchase_order import (
     POReceiptCreate, POReceiptItemUpdate, POReceiptResponse, PODiscrepancyResponse,
     PO_STATUSES, PO_VALID_TRANSITIONS,
 )
-from app.utils.auth import get_current_user, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/purchase-orders", tags=["purchase-orders"])
@@ -94,7 +95,7 @@ async def list_pos(
 
 
 @router.post("", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_po(data: PurchaseOrderCreate, db=Depends(get_db), current_user=Depends(require_reseller_or_admin)):
+async def create_po(data: PurchaseOrderCreate, db=Depends(get_db), current_user=Depends(require_warehouse_or_admin)):
     po = PurchaseOrder(
         po_number=await generate_po_number(db),
         supplier_id=data.supplier_id, payment_type=data.payment_type,
@@ -138,7 +139,7 @@ async def update_po_status(
     po_id: int,
     data: dict,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))).scalar_one_or_none()
     if not po:
@@ -167,7 +168,7 @@ async def update_po_status(
 
 
 @router.post("/{po_id}/receive", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def receive_shipment(po_id: int, data: POReceiptCreate, db=Depends(get_db), current_user=Depends(require_reseller_or_admin)):
+async def receive_shipment(po_id: int, data: POReceiptCreate, db=Depends(get_db), current_user=Depends(require_warehouse_or_admin)):
     po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))).scalar_one_or_none()
     if not po:
         raise HTTPException(status_code=404, detail="Purchase order not found")

@@ -9,6 +9,7 @@ class Service(Base):
     name = Column(String, nullable=False)
     description = Column(String, default="")
     default_price = Column(Float, default=0)
+    wholesale_price = Column(Float, default=0)
     currency = Column(String, default="USD")
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())

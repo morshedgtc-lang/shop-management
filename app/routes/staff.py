@@ -8,7 +8,8 @@ from app.database import get_db, VALID_ROLES
 from app.models.user import User
 from app.schemas.auth import UserResponse
 from app.schemas.staff import StaffCreate, StaffUpdate
-from app.utils.auth import hash_password, require_admin
+from app.utils.auth import hash_password
+from app.utils.permissions import require_admin
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 

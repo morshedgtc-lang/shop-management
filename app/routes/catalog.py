@@ -13,7 +13,8 @@ from app.schemas.catalog import (
     PartCategoryCreate, PartCategoryUpdate, PartCategoryResponse,
     PartTypeCreate, PartTypeUpdate, PartTypeResponse,
 )
-from app.utils.auth import get_current_user, require_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 

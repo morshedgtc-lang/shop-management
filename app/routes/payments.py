@@ -6,7 +6,8 @@ from app.database import get_db
 from app.models.payment import Payment
 from app.models.repair import Repair
 from app.schemas.payment import PaymentCreate, PaymentResponse
-from app.utils.auth import get_current_user, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -141,7 +142,7 @@ async def payment_summary(
 async def delete_payment(
     payment_id: int,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     payment = (await db.execute(select(Payment).where(Payment.id == payment_id))).scalar_one_or_none()
     if not payment:

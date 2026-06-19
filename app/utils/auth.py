@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 
 from app.config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
-from app.database import get_db, ROLE_ADMIN, ROLE_RESELLER
+from app.database import get_db, ROLE_ADMIN, ROLE_TECHNICIAN, ROLE_WAREHOUSE, ROLE_RECEPTION
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -82,19 +82,4 @@ async def get_current_user(
     return user
 
 
-async def require_admin(current_user=Depends(get_current_user)):
-    if current_user.role != ROLE_ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
-    return current_user
 
-
-async def require_reseller_or_admin(current_user=Depends(get_current_user)):
-    if current_user.role not in (ROLE_ADMIN, ROLE_RESELLER):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Reseller or admin access required",
-        )
-    return current_user

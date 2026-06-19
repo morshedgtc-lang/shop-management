@@ -13,6 +13,7 @@ from app.models.expense_category import ExpenseCategory
 from app.models.customer import Customer
 from app.schemas.report import DailySummary, MonthlySummary, ProfitLossItem, ProfitLossReport
 from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 

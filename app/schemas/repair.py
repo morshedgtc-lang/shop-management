@@ -4,19 +4,21 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 REPAIR_STATUSES = [
-    "received", "diagnosed", "waiting_parts",
-    "repairing", "testing", "delivered", "cancelled",
+    "PENDING_ESTIMATE", "ESTIMATE_GIVEN", "APPROVED",
+    "WAITING_PARTS", "REPAIRED", "READY_FOR_PICKUP", "COMPLETED",
 ]
-CANCELLABLE_STATUSES = {"received", "diagnosed", "waiting_parts", "repairing"}
+CANCELLABLE_STATUSES = {"PENDING_ESTIMATE", "ESTIMATE_GIVEN"}
 VALID_TRANSITIONS = {
-    "received": {"diagnosed"},
-    "diagnosed": {"waiting_parts", "repairing"},
-    "waiting_parts": {"repairing"},
-    "repairing": {"testing"},
-    "testing": {"delivered"},
-    "delivered": set(),
-    "cancelled": set(),
+    "PENDING_ESTIMATE": {"ESTIMATE_GIVEN"},
+    "ESTIMATE_GIVEN": {"APPROVED", "COMPLETED"},
+    "APPROVED": {"WAITING_PARTS", "REPAIRED"},
+    "WAITING_PARTS": {"REPAIRED"},
+    "REPAIRED": {"READY_FOR_PICKUP"},
+    "READY_FOR_PICKUP": {"COMPLETED"},
+    "COMPLETED": set(),
 }
+
+ORDER_TYPES = ("OR", "IR")
 
 
 def luhn_checksum(digits: str) -> bool:
@@ -32,11 +34,15 @@ def luhn_checksum(digits: str) -> bool:
 
 
 class RepairCreate(BaseModel):
-    customer_id: int
+    customer_name: str = ""
+    customer_phone: str = ""
+    order_type: str = "OR"
+    intermediate_shop_id: Optional[int] = None
     model: str = Field(..., min_length=1, max_length=200)
     issues: str = Field(..., min_length=1)
     imei: str = ""
     estimated_cost: float = Field(0, ge=0)
+    estimated_time: str = ""
     service_fee: float = Field(0, ge=0)
     assigned_to: Optional[int] = None
     notes: str = ""
@@ -53,12 +59,20 @@ class RepairCreate(BaseModel):
             raise ValueError("IMEI failed Luhn checksum validation")
         return cleaned
 
+    @field_validator("order_type")
+    @classmethod
+    def validate_order_type(cls, v: str) -> str:
+        if v not in ORDER_TYPES:
+            raise ValueError("order_type must be OR or IR")
+        return v
+
 
 class RepairUpdate(BaseModel):
     model: Optional[str] = Field(None, min_length=1, max_length=200)
     issues: Optional[str] = Field(None, min_length=1)
     imei: Optional[str] = None
     estimated_cost: Optional[float] = Field(None, ge=0)
+    estimated_time: Optional[str] = None
     actual_cost: Optional[float] = Field(None, ge=0)
     service_fee: Optional[float] = Field(None, ge=0)
     assigned_to: Optional[int] = None
@@ -115,9 +129,37 @@ class RepairPaymentResponse(BaseModel):
         from_attributes = True
 
 
+class PartRequestResponse(BaseModel):
+    id: int
+    repair_id: int
+    part_id: int
+    part_name: str = ""
+    requested_by: int
+    requester_name: str = ""
+    fulfilled_by: Optional[int] = None
+    fulfiller_name: str = ""
+    quantity: int = 1
+    status: str = "PENDING"
+    notes: str = ""
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PartRequestCreate(BaseModel):
+    part_id: int
+    quantity: int = Field(1, ge=1)
+    notes: str = ""
+
+
+class PartRequestFulfill(BaseModel):
+    quantity: int = Field(1, ge=1)
+
+
 class RepairResponse(BaseModel):
     id: int
-    customer_id: int
+    customer_id: Optional[int] = None
     customer_name: str = ""
     assigned_to: Optional[int] = None
     assigned_user_name: str = ""
@@ -128,16 +170,36 @@ class RepairResponse(BaseModel):
     issues: str
     imei: str
     estimated_cost: float
+    estimated_time: str = ""
     actual_cost: float
     service_fee: float = 0
+    payment_status: str = "UNPAID"
+    order_type: str = "OR"
+    intermediate_shop_id: Optional[int] = None
+    intermediate_shop_name: str = ""
     notes: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     parts: List[RepairPartResponse] = []
     payments: List[RepairPaymentResponse] = []
+    part_requests: List[PartRequestResponse] = []
     total_parts_cost: float = 0
     total_payments: float = 0
     balance: float = 0
 
     class Config:
         from_attributes = True
+
+
+class CheckoutResponse(BaseModel):
+    repair_id: int
+    total_amount: float
+    parts_cost: float
+    service_fee: float
+    message: str
+
+
+class CancelRepairResponse(BaseModel):
+    repair_id: int
+    status: str
+    message: str

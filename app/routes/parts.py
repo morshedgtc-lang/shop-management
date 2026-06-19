@@ -5,7 +5,8 @@ from typing import Optional
 from app.database import get_db
 from app.models.part import Part
 from app.schemas.part import PartCreate, PartUpdate, PartResponse
-from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/parts", tags=["parts"])
@@ -109,7 +110,7 @@ async def scan_barcode(barcode: str, db=Depends(get_db), current_user=Depends(ge
 async def create_part(
     data: PartCreate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     sku = data.sku
     if not sku:
@@ -131,7 +132,7 @@ async def update_part(
     part_id: int,
     data: PartUpdate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     part = (await db.execute(select(Part).where(Part.id == part_id))).scalar_one_or_none()
     if not part:

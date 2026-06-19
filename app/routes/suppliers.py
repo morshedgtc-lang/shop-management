@@ -10,7 +10,8 @@ from app.schemas.supplier import (
     SupplierCreate, SupplierUpdate, SupplierResponse, SupplierDetailResponse,
     SupplierPaymentCreate, SupplierPaymentResponse,
 )
-from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -65,7 +66,7 @@ async def list_suppliers(
 
 
 @router.post("", response_model=SupplierResponse, status_code=status.HTTP_201_CREATED)
-async def create_supplier(data: SupplierCreate, db=Depends(get_db), current_user=Depends(require_reseller_or_admin)):
+async def create_supplier(data: SupplierCreate, db=Depends(get_db), current_user=Depends(require_warehouse_or_admin)):
     supplier = Supplier(**data.model_dump())
     db.add(supplier)
     await db.commit()
@@ -104,7 +105,7 @@ async def get_supplier(supplier_id: int, db=Depends(get_db), current_user=Depend
 
 
 @router.put("/{supplier_id}", response_model=SupplierResponse)
-async def update_supplier(supplier_id: int, data: SupplierUpdate, db=Depends(get_db), current_user=Depends(require_reseller_or_admin)):
+async def update_supplier(supplier_id: int, data: SupplierUpdate, db=Depends(get_db), current_user=Depends(require_warehouse_or_admin)):
     supplier = (await db.execute(select(Supplier).where(Supplier.id == supplier_id))).scalar_one_or_none()
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
@@ -137,7 +138,7 @@ async def list_supplier_payments(supplier_id: int, db=Depends(get_db), current_u
 
 
 @router.post("/{supplier_id}/payments", response_model=SupplierPaymentResponse, status_code=status.HTTP_201_CREATED)
-async def create_supplier_payment(supplier_id: int, data: SupplierPaymentCreate, db=Depends(get_db), current_user=Depends(require_reseller_or_admin)):
+async def create_supplier_payment(supplier_id: int, data: SupplierPaymentCreate, db=Depends(get_db), current_user=Depends(require_warehouse_or_admin)):
     s = (await db.execute(select(Supplier).where(Supplier.id == supplier_id))).scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="Supplier not found")

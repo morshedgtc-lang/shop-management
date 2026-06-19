@@ -20,6 +20,7 @@ from app.models.part import Part
 from app.routes import (
     auth, customers, repairs, services, parts, payments, expenses,
     daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders, ws,
+    intermediate_shops, collections, inventory_bulk,
 )
 
 app = FastAPI(
@@ -52,6 +53,9 @@ app.include_router(catalog.router)
 app.include_router(suppliers.router)
 app.include_router(purchase_orders.router)
 app.include_router(ws.router)
+app.include_router(intermediate_shops.router)
+app.include_router(collections.router)
+app.include_router(inventory_bulk.router)
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
@@ -124,23 +128,23 @@ async def dashboard(
     pending = (
         await db.execute(
             select(sqlfunc.count(Repair.id)).where(
-                Repair.status.in_(["received", "diagnosed"])
+                Repair.status.in_(["PENDING_ESTIMATE", "ESTIMATE_GIVEN"])
             )
         )
     ).scalar() or 0
     in_progress = (
         await db.execute(
             select(sqlfunc.count(Repair.id)).where(
-                Repair.status.in_(["waiting_parts", "repairing", "testing"])
+                Repair.status.in_(["APPROVED", "WAITING_PARTS", "REPAIRED"])
             )
         )
     ).scalar() or 0
     completed_today = (
         await db.execute(
             select(sqlfunc.count(Repair.id)).where(
-                Repair.status == "delivered",
+                Repair.status == "COMPLETED",
                 Repair.updated_at >= today,
-                Repair.updated_at <= today + " 23:59:59",
+                Repair.updated_at < today + " 23:59:59",
             )
         )
     ).scalar() or 0

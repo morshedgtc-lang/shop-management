@@ -4,7 +4,8 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models.service import Service
 from app.schemas.service import ServiceCreate, ServiceUpdate, ServiceResponse
-from app.utils.auth import get_current_user, require_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/services", tags=["services"])
 

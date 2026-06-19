@@ -28,9 +28,10 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 ROLE_ADMIN = "admin"
-ROLE_RESELLER = "reseller"
-ROLE_RETAILER = "retailer"
-VALID_ROLES = {ROLE_ADMIN, ROLE_RESELLER, ROLE_RETAILER}
+ROLE_TECHNICIAN = "technician"
+ROLE_WAREHOUSE = "warehouse"
+ROLE_RECEPTION = "reception"
+VALID_ROLES = {ROLE_ADMIN, ROLE_TECHNICIAN, ROLE_WAREHOUSE, ROLE_RECEPTION}
 
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -41,6 +42,7 @@ async def init_db():
     from app.models import payment, daily_sale, expense, expense_category, setting
     from app.models import brand, device_model, part_category, part_type
     from app.models import supplier, purchase_order, supplier_payment
+    from app.models import part_request, intermediate_shop, collection_run, collection_item
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -50,6 +52,7 @@ async def init_db():
     await _seed_settings()
     await _seed_catalog()
     await _migrate_legacy_roles()
+    await _migrate_legacy_statuses()
 
 async def _seed_expense_categories():
     from app.models.expense_category import ExpenseCategory
@@ -202,9 +205,33 @@ async def _migrate_legacy_roles():
     from app.models.user import User
     async with AsyncSessionLocal() as db:
         await db.execute(
-            update(User).where(User.role == "manager").values(role=ROLE_RESELLER)
+            update(User).where(User.role == "manager").values(role=ROLE_TECHNICIAN)
         )
         await db.execute(
-            update(User).where(User.role == "staff").values(role=ROLE_RETAILER)
+            update(User).where(User.role == "staff").values(role=ROLE_RECEPTION)
         )
+        await db.execute(
+            update(User).where(User.role == "reseller").values(role=ROLE_TECHNICIAN)
+        )
+        await db.execute(
+            update(User).where(User.role == "retailer").values(role=ROLE_RECEPTION)
+        )
+        await db.commit()
+
+async def _migrate_legacy_statuses():
+    from app.models.repair import Repair
+    async with AsyncSessionLocal() as db:
+        mapping = {
+            "received": "PENDING_ESTIMATE",
+            "diagnosed": "ESTIMATE_GIVEN",
+            "waiting_parts": "WAITING_PARTS",
+            "repairing": "APPROVED",
+            "testing": "REPAIRED",
+            "delivered": "COMPLETED",
+            "cancelled": "COMPLETED",
+        }
+        for old, new in mapping.items():
+            await db.execute(
+                update(Repair).where(Repair.status == old).values(status=new)
+            )
         await db.commit()

@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-from app.database import ROLE_ADMIN, ROLE_RESELLER, ROLE_RETAILER
+from app.database import ROLE_ADMIN, ROLE_TECHNICIAN, ROLE_WAREHOUSE, ROLE_RECEPTION
 
 
 class LoginRequest(BaseModel):

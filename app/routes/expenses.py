@@ -10,7 +10,8 @@ from app.schemas.expense import (
     ExpenseCreate, ExpenseUpdate, ExpenseCategoryCreate,
     ExpenseCategoryResponse, ExpenseResponse,
 )
-from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
@@ -62,7 +63,7 @@ async def list_expenses(
 async def create_expense(
     data: ExpenseCreate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     cat = (await db.execute(select(ExpenseCategory).where(ExpenseCategory.id == data.category_id))).scalar_one_or_none()
     if not cat:
@@ -89,7 +90,7 @@ async def update_expense(
     expense_id: int,
     data: ExpenseUpdate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     expense = (await db.execute(select(Expense).where(Expense.id == expense_id))).scalar_one_or_none()
     if not expense:

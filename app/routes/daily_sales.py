@@ -6,7 +6,8 @@ from datetime import date
 from app.database import get_db
 from app.models.daily_sale import DailySale
 from app.schemas.daily_sale import DailySaleCreate, DailySaleUpdate, DailySaleResponse
-from app.utils.auth import get_current_user, require_admin, require_reseller_or_admin
+from app.utils.auth import get_current_user
+from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/daily-sales", tags=["daily_sales"])
 
@@ -45,7 +46,7 @@ async def list_daily_sales(
 async def create_daily_sale(
     data: DailySaleCreate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     sale_date = data.date or date.today().isoformat()
     sale = DailySale(
@@ -64,7 +65,7 @@ async def update_daily_sale(
     sale_id: int,
     data: DailySaleUpdate,
     db=Depends(get_db),
-    current_user=Depends(require_reseller_or_admin),
+    current_user=Depends(require_warehouse_or_admin),
 ):
     sale = (await db.execute(select(DailySale).where(DailySale.id == sale_id))).scalar_one_or_none()
     if not sale:
