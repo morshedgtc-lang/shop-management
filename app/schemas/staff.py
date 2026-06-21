@@ -25,6 +25,7 @@ class StaffUpdate(BaseModel):
     phone: Optional[str] = None
     role: Optional[str] = None
     active: Optional[bool] = None
+    password: Optional[str] = None
 
     @field_validator("role")
     @classmethod

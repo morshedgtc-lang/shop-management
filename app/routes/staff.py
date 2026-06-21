@@ -100,9 +100,32 @@ async def update_staff(
         user.role = data.role
     if data.active is not None:
         user.active = data.active
+    if data.password is not None:
+        user.password_hash = hash_password(data.password)
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/reset-password", response_model=dict)
+async def reset_staff_password(
+    user_id: int,
+    db=Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff not found")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot reset your own password. Use Settings page.")
+    plain_password = generate_password()
+    user.password_hash = hash_password(plain_password)
+    await db.commit()
+    await db.refresh(user)
+    return {
+        "password": plain_password,
+        "message": "Password reset successfully. Save this password - it will not be shown again.",
+    }
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
