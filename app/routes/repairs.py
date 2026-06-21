@@ -85,7 +85,7 @@ async def build_repair_response(r: Repair, db) -> RepairResponse:
     shop = await db.get(IntermediateShop, r.intermediate_shop_id) if r.intermediate_shop_id else None
 
     rps = (await db.execute(select(RepairPart).where(RepairPart.repair_id == r.id))).scalars().all()
-    total_parts_cost = sum(rp.qty * rp.unit_price for rp in rps)
+    total_parts_cost = sum(rp.qty * rp.selling_price for rp in rps)
 
     pay_result = await db.execute(
         select(sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0)).where(

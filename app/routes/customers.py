@@ -149,7 +149,7 @@ async def get_customer_repairs(
         creator_name = user_map.get(r.created_by, "")
 
         rps = parts_by_repair.get(r.id, [])
-        total_parts_cost = sum(rp.qty * rp.unit_price for rp in rps)
+        total_parts_cost = sum(rp.qty * rp.selling_price for rp in rps)
 
         pays = pay_by_repair.get(r.id, [])
         total_payments = sum(p.amount for p in pays)
