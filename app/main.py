@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from datetime import date
 
 from fastapi import FastAPI, Depends, HTTPException, Request, status
@@ -23,11 +24,19 @@ from app.routes import (
     intermediate_shops, collections, inventory_bulk,
 )
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await init_db()
+    yield
+
+
 app = FastAPI(
     title="Shop Management",
     description="A comprehensive shop management system for repair shops",
     version="1.0.0",
     redirect_slashes=False,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -60,11 +69,6 @@ app.include_router(inventory_bulk.router)
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
 
 
 @app.exception_handler(HTTPException)

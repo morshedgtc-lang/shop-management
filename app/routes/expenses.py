@@ -11,7 +11,7 @@ from app.schemas.expense import (
     ExpenseCategoryResponse, ExpenseResponse,
 )
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin, require_warehouse_or_admin
 
 router = APIRouter(prefix="/api/expenses", tags=["expenses"])
 
@@ -26,30 +26,30 @@ async def list_expenses(
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    count_stmt = select(sqlfunc.count(Expense.id))
-    list_stmt = select(Expense)
+    filters = []
     if date_from:
-        count_stmt = count_stmt.where(Expense.date >= date_from)
-        list_stmt = list_stmt.where(Expense.date >= date_from)
+        filters.append(Expense.date >= date_from)
     if date_to:
-        count_stmt = count_stmt.where(Expense.date <= date_to)
-        list_stmt = list_stmt.where(Expense.date <= date_to)
+        filters.append(Expense.date <= date_to)
     if category_id:
-        count_stmt = count_stmt.where(Expense.category_id == category_id)
-        list_stmt = list_stmt.where(Expense.category_id == category_id)
-    total = (await db.execute(count_stmt)).scalar() or 0
+        filters.append(Expense.category_id == category_id)
+    total = (await db.execute(select(sqlfunc.count(Expense.id)).where(*filters))).scalar() or 0
     expenses = (
-        (await db.execute(list_stmt.order_by(Expense.date.desc()).offset((page - 1) * limit).limit(limit)))
+        (await db.execute(select(Expense).where(*filters).order_by(Expense.date.desc()).offset((page - 1) * limit).limit(limit)))
         .scalars()
         .all()
     )
     items = []
+    cat_ids = list(set(e.category_id for e in expenses))
+    cat_map = {}
+    if cat_ids:
+        cats = (await db.execute(select(ExpenseCategory).where(ExpenseCategory.id.in_(cat_ids)))).scalars().all()
+        cat_map = {c.id: c.name for c in cats}
     for e in expenses:
-        cat = (await db.execute(select(ExpenseCategory).where(ExpenseCategory.id == e.category_id))).scalar_one_or_none()
         items.append(
             ExpenseResponse(
                 id=e.id, date=e.date, amount=e.amount, currency=e.currency,
-                category_id=e.category_id, category_name=cat.name if cat else "",
+                category_id=e.category_id, category_name=cat_map.get(e.category_id, ""),
                 note=e.note, created_by=e.created_by, created_at=e.created_at,
             )
         )

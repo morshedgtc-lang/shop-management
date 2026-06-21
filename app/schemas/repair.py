@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 REPAIR_STATUSES = [
     "PENDING_ESTIMATE", "ESTIMATE_GIVEN", "APPROVED",
@@ -113,8 +113,7 @@ class RepairPartResponse(BaseModel):
     returned_qty: int = 0
     part_name: str = ""
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RepairPaymentResponse(BaseModel):
@@ -125,8 +124,7 @@ class RepairPaymentResponse(BaseModel):
     notes: str
     paid_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartRequestResponse(BaseModel):
@@ -143,8 +141,7 @@ class PartRequestResponse(BaseModel):
     notes: str = ""
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartRequestCreate(BaseModel):
@@ -187,8 +184,7 @@ class RepairResponse(BaseModel):
     total_payments: float = 0
     balance: float = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CheckoutResponse(BaseModel):

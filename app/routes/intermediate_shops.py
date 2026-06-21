@@ -1,8 +1,7 @@
 import os
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select
-from typing import Optional
 
 from app.database import get_db
 from app.models.intermediate_shop import IntermediateShop

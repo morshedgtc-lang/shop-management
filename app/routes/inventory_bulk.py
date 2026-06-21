@@ -1,11 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select
-from typing import List
 
 from app.database import get_db
 from app.models.part import Part
-from app.schemas.part import PartResponse
-from app.utils.auth import get_current_user
 from app.utils.permissions import require_warehouse_or_admin
 from app.utils.ocr_engine import ocr_engine
 

@@ -1,5 +1,3 @@
-import os
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select, func as sqlfunc
@@ -18,14 +16,13 @@ from app.schemas.repair import (
     RepairCreate, RepairUpdate, RepairStatusUpdate, RepairResponse,
     RepairPartResponse, RepairPaymentResponse, PartRequestResponse,
     PartRequestCreate, PartRequestFulfill, CancelRepairResponse,
-    VALID_TRANSITIONS, CANCELLABLE_STATUSES,
+    VALID_TRANSITIONS,
 )
 from app.utils.auth import get_current_user
 from app.utils.invoice_generator import invoice_generator
 from app.utils.permissions import (
-    require_reception, require_technician, require_warehouse,
-    require_reception_or_technician, require_reception_or_admin,
-    require_admin, can_cancel_repair,
+    require_technician, require_warehouse,
+    require_reception_or_technician, can_cancel_repair,
 )
 from app.utils.ws_manager import ws_manager
 
@@ -128,8 +125,10 @@ async def build_repair_response(r: Repair, db) -> RepairResponse:
         p_req_map = {p.id: p.name for p in pr2.scalars().all()}
     user_ids = set()
     for p in prs:
-        if p.requested_by: user_ids.add(p.requested_by)
-        if p.fulfilled_by: user_ids.add(p.fulfilled_by)
+        if p.requested_by:
+            user_ids.add(p.requested_by)
+        if p.fulfilled_by:
+            user_ids.add(p.fulfilled_by)
     user_map = {}
     if user_ids:
         ur = await db.execute(select(User).where(User.id.in_(list(user_ids))))
@@ -608,8 +607,10 @@ async def list_part_requests(
         part_map = {p.id: p.name for p in pr.scalars().all()}
     user_ids = set()
     for p in rows:
-        if p.requested_by: user_ids.add(p.requested_by)
-        if p.fulfilled_by: user_ids.add(p.fulfilled_by)
+        if p.requested_by:
+            user_ids.add(p.requested_by)
+        if p.fulfilled_by:
+            user_ids.add(p.fulfilled_by)
     user_map = {}
     if user_ids:
         ur = await db.execute(select(User).where(User.id.in_(list(user_ids))))

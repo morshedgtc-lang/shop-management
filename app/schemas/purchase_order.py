@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 PO_STATUSES = ["draft", "sent", "partially_received", "received", "closed", "cancelled"]
 PO_PAYMENT_TYPES = ["credit", "cash"]
@@ -58,8 +58,7 @@ class PurchaseOrderItemResponse(BaseModel):
     selling_price: float
     status: str = "pending"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseOrderResponse(BaseModel):
@@ -77,8 +76,7 @@ class PurchaseOrderResponse(BaseModel):
     updated_at: Optional[datetime] = None
     items: List[PurchaseOrderItemResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class POReceiptItemUpdate(BaseModel):
@@ -110,8 +108,7 @@ class POReceiptResponse(BaseModel):
     received_by: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PODiscrepancyResponse(BaseModel):
@@ -124,5 +121,4 @@ class PODiscrepancyResponse(BaseModel):
     note: str
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

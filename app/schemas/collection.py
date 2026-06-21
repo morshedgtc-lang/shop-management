@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class CollectionItemCreate(BaseModel):
@@ -20,8 +20,7 @@ class CollectionItemResponse(BaseModel):
     repair_status: str = ""
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CollectionRunCreate(BaseModel):
@@ -41,8 +40,7 @@ class CollectionRunResponse(BaseModel):
     collected_at: Optional[datetime] = None
     items: List[CollectionItemResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PendingCollectionResponse(BaseModel):
@@ -54,8 +52,7 @@ class PendingCollectionResponse(BaseModel):
     service_fee: float
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ShopSummaryResponse(BaseModel):

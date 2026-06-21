@@ -11,7 +11,7 @@ from app.schemas.supplier import (
     SupplierPaymentCreate, SupplierPaymentResponse,
 )
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin, require_warehouse_or_admin
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -24,37 +24,39 @@ async def list_suppliers(
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    count_stmt = select(sqlfunc.count(Supplier.id))
-    list_stmt = select(Supplier)
+    filters = []
     if search:
         term = f"%{search}%"
-        count_stmt = count_stmt.where((Supplier.name.ilike(term)) | (Supplier.phone.ilike(term)))
-        list_stmt = list_stmt.where((Supplier.name.ilike(term)) | (Supplier.phone.ilike(term)))
-    total = (await db.execute(count_stmt)).scalar() or 0
-    suppliers = (await db.execute(list_stmt.offset((page - 1) * limit).limit(limit))).scalars().all()
+        filters.append((Supplier.name.ilike(term)) | (Supplier.phone.ilike(term)))
+    total = (await db.execute(select(sqlfunc.count(Supplier.id)).where(*filters))).scalar() or 0
+    suppliers = (await db.execute(select(Supplier).where(*filters).offset((page - 1) * limit).limit(limit))).scalars().all()
 
     items = []
+    supplier_ids = [s.id for s in suppliers]
+
+    credit_rows = (
+        await db.execute(
+            select(PurchaseOrderItem.cost_price, PurchaseOrderItem.qty_ordered, PurchaseOrder.supplier_id, PurchaseOrder.payment_type)
+            .join(PurchaseOrder, PurchaseOrderItem.po_id == PurchaseOrder.id)
+            .where(PurchaseOrder.supplier_id.in_(supplier_ids), PurchaseOrder.payment_type == "credit")
+        )
+    ).all()
+    purchases_by_supplier = {}
+    for row in credit_rows:
+        purchases_by_supplier[row.supplier_id] = purchases_by_supplier.get(row.supplier_id, 0) + row.cost_price * row.qty_ordered
+
+    paid_rows = (
+        await db.execute(
+            select(SupplierPayment.supplier_id, sqlfunc.coalesce(sqlfunc.sum(SupplierPayment.amount), 0))
+            .where(SupplierPayment.supplier_id.in_(supplier_ids))
+            .group_by(SupplierPayment.supplier_id)
+        )
+    ).all()
+    paid_by_supplier = {row.supplier_id: float(row[1]) for row in paid_rows}
+
     for s in suppliers:
-        # Aggregate credit purchase totals
-        credit_pos = (
-            await db.execute(
-                select(PurchaseOrderItem.cost_price, PurchaseOrderItem.qty_ordered)
-                .join(PurchaseOrder, PurchaseOrderItem.po_id == PurchaseOrder.id)
-                .where(
-                    PurchaseOrder.supplier_id == s.id,
-                    PurchaseOrder.payment_type == "credit",
-                )
-            )
-        ).all()
-        total_purchases = sum(row.cost_price * row.qty_ordered for row in credit_pos)
-
-        total_paid = (
-            await db.execute(
-                select(sqlfunc.coalesce(sqlfunc.sum(SupplierPayment.amount), 0))
-                .where(SupplierPayment.supplier_id == s.id)
-            )
-        ).scalar() or 0
-
+        total_purchases = purchases_by_supplier.get(s.id, 0)
+        total_paid = paid_by_supplier.get(s.id, 0)
         items.append(SupplierDetailResponse(
             id=s.id, name=s.name, phone=s.phone, address=s.address,
             notes=s.notes, created_at=s.created_at,

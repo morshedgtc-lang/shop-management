@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func as sqlfunc, update as sqlupdate
+from sqlalchemy import select, func as sqlfunc
 from typing import Optional
 
 from app.database import get_db
 from app.models.part import Part
 from app.schemas.part import PartCreate, PartUpdate, PartResponse
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin, require_warehouse_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/parts", tags=["parts"])

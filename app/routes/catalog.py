@@ -14,7 +14,7 @@ from app.schemas.catalog import (
     PartTypeCreate, PartTypeUpdate, PartTypeResponse,
 )
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -60,7 +60,7 @@ async def delete_brand(brand_id: int, db=Depends(get_db), current_user=Depends(r
 
 @router.get("/models", response_model=list[DeviceModelResponse])
 async def list_models(brand_id: Optional[int] = Query(None), db=Depends(get_db), current_user=Depends(get_current_user)):
-    query = select(DeviceModel).where(DeviceModel.active == True)
+    query = select(DeviceModel).where(DeviceModel.active)
     if brand_id:
         query = query.where(DeviceModel.brand_id == brand_id)
     models = (await db.execute(query.order_by(DeviceModel.sort_order, DeviceModel.name))).scalars().all()
@@ -147,7 +147,7 @@ async def delete_category(cat_id: int, db=Depends(get_db), current_user=Depends(
 
 @router.get("/types", response_model=list[PartTypeResponse])
 async def list_part_types(category_id: Optional[int] = Query(None), db=Depends(get_db), current_user=Depends(get_current_user)):
-    query = select(PartType).where(PartType.active == True)
+    query = select(PartType).where(PartType.active)
     if category_id:
         query = query.where(PartType.category_id == category_id)
     types = (await db.execute(query.order_by(PartType.sort_order, PartType.name))).scalars().all()

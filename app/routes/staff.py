@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from typing import Optional
 
-from app.database import get_db, VALID_ROLES
+from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import UserResponse
 from app.schemas.staff import StaffCreate, StaffUpdate

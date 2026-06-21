@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 PAYMENT_METHODS = Literal[
     "cash", "bkash", "nagad", "rocket", "card",
@@ -27,5 +27,4 @@ class PaymentResponse(BaseModel):
     created_by: int
     paid_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

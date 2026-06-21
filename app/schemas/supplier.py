@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SupplierCreate(BaseModel):
@@ -26,8 +26,7 @@ class SupplierResponse(BaseModel):
     notes: str
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SupplierPaymentCreate(BaseModel):
@@ -47,8 +46,7 @@ class SupplierPaymentResponse(BaseModel):
     created_by: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SupplierDetailResponse(SupplierResponse):

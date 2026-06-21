@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.setting import Setting
 from app.schemas.setting import SettingUpdate, SettingResponse
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 

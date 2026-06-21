@@ -13,7 +13,6 @@ from app.models.expense_category import ExpenseCategory
 from app.models.customer import Customer
 from app.schemas.report import DailySummary, MonthlySummary, ProfitLossItem, ProfitLossReport
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -162,12 +161,26 @@ async def monthly_summary(
     ).scalar() or 0
 
     daily_breakdown = []
+    all_payments = (await db.execute(select(Payment).where(Payment.paid_at >= first_day, Payment.paid_at <= end_bound))).scalars().all()
+    all_daily_sales = (await db.execute(select(DailySale).where(DailySale.date >= first_day, DailySale.date <= last_day))).scalars().all()
+    all_expenses = (await db.execute(select(Expense).where(Expense.date >= first_day, Expense.date <= last_day))).scalars().all()
+
+    pay_by_day = {}
+    for p in all_payments:
+        day = p.paid_at.strftime("%Y-%m-%d") if p.paid_at else first_day
+        pay_by_day.setdefault(day, []).append(p)
+    sale_by_day = {}
+    for s in all_daily_sales:
+        sale_by_day.setdefault(s.date, []).append(s)
+    exp_by_day = {}
+    for e in all_expenses:
+        exp_by_day.setdefault(e.date, []).append(e)
+
     for day in range(1, last_day_num + 1):
         day_str = f"{target_year}-{target_month:02d}-{day:02d}"
-        day_end = day_str + " 23:59:59"
-        day_pay = (await db.execute(select(Payment).where(Payment.paid_at >= day_str, Payment.paid_at <= day_end))).scalars().all()
-        day_man = (await db.execute(select(DailySale).where(DailySale.date == day_str))).scalars().all()
-        day_exp = (await db.execute(select(Expense).where(Expense.date == day_str))).scalars().all()
+        day_pay = pay_by_day.get(day_str, [])
+        day_man = sale_by_day.get(day_str, [])
+        day_exp = exp_by_day.get(day_str, [])
         day_rev = sum(p.amount for p in day_pay) + sum(s.amount for s in day_man)
         day_exp_sum = sum(e.amount for e in day_exp)
         day_methods = {}

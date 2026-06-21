@@ -1,4 +1,3 @@
-from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func as sqlfunc
 from typing import Optional
@@ -11,11 +10,10 @@ from app.models.purchase_order import (
 from app.models.part import Part
 from app.schemas.purchase_order import (
     PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
-    POReceiptCreate, POReceiptItemUpdate, POReceiptResponse, PODiscrepancyResponse,
-    PO_STATUSES, PO_VALID_TRANSITIONS,
+    POReceiptCreate, PO_STATUSES, PO_VALID_TRANSITIONS,
 )
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_warehouse_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/purchase-orders", tags=["purchase-orders"])

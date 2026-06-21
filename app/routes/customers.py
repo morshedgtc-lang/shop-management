@@ -5,11 +5,12 @@ from typing import Optional
 from app.database import get_db
 from app.models.customer import Customer
 from app.models.repair import Repair
+from app.models.user import User
 from app.models.payment import Payment
 from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerResponse
 from app.schemas.repair import RepairResponse
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_admin
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -22,33 +23,15 @@ async def list_customers(
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    query = select(Customer)
+    filters = []
     if search:
         term = f"%{search}%"
-        query = query.where(
-            (Customer.name.ilike(term))
-            | (Customer.phone.ilike(term))
-            | (Customer.email.ilike(term))
-        )
-    total = (await db.execute(select(sqlfunc.count()).select_from(Customer).where(query.whereclause) if search else select(sqlfunc.count()).select_from(Customer))).scalar() or 0
-
-    # Simplified: count first then paginate
-    count_query = select(sqlfunc.count(Customer.id))
-    if search:
-        term = f"%{search}%"
-        count_query = count_query.where(
+        filters.append(
             (Customer.name.ilike(term)) | (Customer.phone.ilike(term)) | (Customer.email.ilike(term))
         )
-    total = (await db.execute(count_query)).scalar() or 0
-
-    list_query = select(Customer)
-    if search:
-        term = f"%{search}%"
-        list_query = list_query.where(
-            (Customer.name.ilike(term)) | (Customer.phone.ilike(term)) | (Customer.email.ilike(term))
-        )
+    total = (await db.execute(select(sqlfunc.count(Customer.id)).where(*filters))).scalar() or 0
     customers = (
-        (await db.execute(list_query.offset((page - 1) * limit).limit(limit)))
+        (await db.execute(select(Customer).where(*filters).offset((page - 1) * limit).limit(limit)))
         .scalars()
         .all()
     )
@@ -136,25 +119,40 @@ async def get_customer_repairs(
     repairs = repairs_result.scalars().all()
 
     from app.models.repair_part import RepairPart
-    from app.models.part import Part
+
+    user_ids = set()
+    for r in repairs:
+        if r.assigned_to:
+            user_ids.add(r.assigned_to)
+        if r.created_by:
+            user_ids.add(r.created_by)
+    user_map = {}
+    if user_ids:
+        users = (await db.execute(select(User).where(User.id.in_(list(user_ids))))).scalars().all()
+        user_map = {u.id: u.name for u in users}
+
+    repair_ids = [r.id for r in repairs]
+    rps_list = (await db.execute(select(RepairPart).where(RepairPart.repair_id.in_(repair_ids)))).scalars().all()
+    parts_by_repair = {}
+    for rp in rps_list:
+        parts_by_repair.setdefault(rp.repair_id, []).append(rp)
+
+    pay_rows = (await db.execute(select(Payment).where(Payment.repair_id.in_(repair_ids)))).scalars().all()
+    pay_by_repair = {}
+    for p in pay_rows:
+        pay_by_repair.setdefault(p.repair_id, []).append(p)
+
     items = []
     for r in repairs:
-        cust = await db.get(Customer, r.customer_id)
-        customer_name = cust.name if cust else ""
-        assigned_user = await db.get(User, r.assigned_to) if r.assigned_to else None
-        assigned_name = assigned_user.name if assigned_user else ""
-        creator = await db.get(User, r.created_by)
-        creator_name = creator.name if creator else ""
+        customer_name = (await db.get(Customer, r.customer_id)).name if r.customer_id else ""
+        assigned_name = user_map.get(r.assigned_to, "")
+        creator_name = user_map.get(r.created_by, "")
 
-        rps = (await db.execute(select(RepairPart).where(RepairPart.repair_id == r.id))).scalars().all()
+        rps = parts_by_repair.get(r.id, [])
         total_parts_cost = sum(rp.qty * rp.unit_price for rp in rps)
 
-        pay_result = await db.execute(
-            select(sqlfunc.coalesce(sqlfunc.sum(Payment.amount), 0)).where(
-                Payment.repair_id == r.id
-            )
-        )
-        total_payments = float(pay_result.scalar() or 0)
+        pays = pay_by_repair.get(r.id, [])
+        total_payments = sum(p.amount for p in pays)
 
         items.append(
             RepairResponse(

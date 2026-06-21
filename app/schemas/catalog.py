@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BrandCreate(BaseModel):
@@ -20,8 +20,7 @@ class BrandResponse(BaseModel):
     active: bool
     sort_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeviceModelCreate(BaseModel):
@@ -45,8 +44,7 @@ class DeviceModelResponse(BaseModel):
     sort_order: int
     brand_name: str = ""
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartCategoryCreate(BaseModel):
@@ -64,8 +62,7 @@ class PartCategoryResponse(BaseModel):
     name: str
     sort_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PartTypeCreate(BaseModel):
@@ -89,5 +86,4 @@ class PartTypeResponse(BaseModel):
     sort_order: int
     category_name: str = ""
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

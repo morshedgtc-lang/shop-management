@@ -7,7 +7,7 @@ from app.models.payment import Payment
 from app.models.repair import Repair
 from app.schemas.payment import PaymentCreate, PaymentResponse
 from app.utils.auth import get_current_user
-from app.utils.permissions import require_admin, require_warehouse, require_warehouse_or_admin, require_reception_or_admin
+from app.utils.permissions import require_warehouse_or_admin
 from app.utils.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
