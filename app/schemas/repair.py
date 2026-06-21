@@ -39,6 +39,8 @@ class RepairCreate(BaseModel):
     order_type: str = "OR"
     intermediate_shop_id: Optional[int] = None
     model: str = Field(..., min_length=1, max_length=200)
+    brand: str = ""
+    passcode: str = ""
     issues: str = Field(..., min_length=1)
     imei: str = ""
     estimated_cost: float = Field(0, ge=0)
@@ -46,6 +48,9 @@ class RepairCreate(BaseModel):
     service_fee: float = Field(0, ge=0)
     assigned_to: Optional[int] = None
     notes: str = ""
+    handover_items: str = "[]"
+    handover_memory_note: str = ""
+    condition_data: str = "{}"
 
     @field_validator("imei")
     @classmethod
@@ -69,6 +74,8 @@ class RepairCreate(BaseModel):
 
 class RepairUpdate(BaseModel):
     model: Optional[str] = Field(None, min_length=1, max_length=200)
+    brand: Optional[str] = None
+    passcode: Optional[str] = None
     issues: Optional[str] = Field(None, min_length=1)
     imei: Optional[str] = None
     estimated_cost: Optional[float] = Field(None, ge=0)
@@ -77,6 +84,9 @@ class RepairUpdate(BaseModel):
     service_fee: Optional[float] = Field(None, ge=0)
     assigned_to: Optional[int] = None
     notes: Optional[str] = None
+    handover_items: Optional[str] = None
+    handover_memory_note: Optional[str] = None
+    condition_data: Optional[str] = None
 
     @field_validator("imei")
     @classmethod
@@ -164,6 +174,8 @@ class RepairResponse(BaseModel):
     creator_name: str = ""
     status: str
     model: str
+    brand: str = ""
+    passcode: str = ""
     issues: str
     imei: str
     estimated_cost: float
@@ -175,6 +187,9 @@ class RepairResponse(BaseModel):
     intermediate_shop_id: Optional[int] = None
     intermediate_shop_name: str = ""
     notes: str
+    handover_items: str = "[]"
+    handover_memory_note: str = ""
+    condition_data: str = "{}"
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     parts: List[RepairPartResponse] = []

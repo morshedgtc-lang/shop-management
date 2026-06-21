@@ -75,6 +75,13 @@ Railway auto-deploys from `main` branch. Add PostgreSQL database via Railway das
 - Login now fetches `GET /api/auth/me` after login to populate `state.user` with role and name; `init()` also fetches user info
 - Logging infrastructure: `app/models/log.py` (LogEntry), `app/utils/logger.py` (async log_event + get_logs + get_log_summary), `app/routes/logs.py` (GET /api/logs, admin-only, with level/source/action/user/date filtering + pagination)
 - Log viewer frontend: `renderLogs()` in `pages.js` with level badges, filter bar, pagination, summary stat cards; "Activity Logs" nav item visible only to admin
+- Intake form redesign: added brand, passcode, accessories checkboxes (SIM Tray, Memory Card, Charger, Cable, Case), pre-repair condition checkboxes + remarks on `showNewRepairModal()`
+- New `Repair` model columns: `brand`, `passcode`, `handover_items` (JSON), `handover_memory_note`, `condition_data` (JSON)
+- Updated `RepairCreate`, `RepairUpdate`, `RepairResponse` schemas with all new fields
+- Updated `create_repair` route and `build_repair_response` to pass new fields
+- Updated `showRepairDetail()` to display brand/passcode/accessories/condition in detail modal
+- Rewrote `invoice_generator.py` to produce revised printed receipt with shop header, token ID, date, customer, device, passcode, accessories checklist, condition notes, and disclaimer
+- Added SQLite migration in `database.py` for new columns on existing DBs
 - All imports verified — app starts clean
 
 ### Previously

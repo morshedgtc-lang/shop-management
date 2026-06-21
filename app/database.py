@@ -42,10 +42,30 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    await _migrate_repairs()
     await _seed_expense_categories()
     await _seed_admin_user()
     await _seed_settings()
     await _seed_catalog()
+
+
+async def _migrate_repairs():
+    from sqlalchemy import text
+    try:
+        async with engine.begin() as conn:
+            for col, col_type in [
+                ("brand", "VARCHAR(200) DEFAULT ''"),
+                ("passcode", "VARCHAR(200) DEFAULT ''"),
+                ("handover_items", "TEXT DEFAULT '[]'"),
+                ("handover_memory_note", "VARCHAR(200) DEFAULT ''"),
+                ("condition_data", "TEXT DEFAULT '{}'"),
+            ]:
+                try:
+                    await conn.execute(text(f"ALTER TABLE repairs ADD COLUMN {col} {col_type}"))
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
 async def _seed_expense_categories():
     from app.models.expense_category import ExpenseCategory
