@@ -21,7 +21,7 @@ from app.models.part import Part
 from app.routes import (
     auth, customers, repairs, services, parts, payments, expenses,
     daily_sales, reports, staff, settings, catalog, suppliers, purchase_orders, ws,
-    intermediate_shops, collections, inventory_bulk,
+    intermediate_shops, collections, inventory_bulk, logs,
 )
 
 
@@ -65,6 +65,7 @@ app.include_router(ws.router)
 app.include_router(intermediate_shops.router)
 app.include_router(collections.router)
 app.include_router(inventory_bulk.router)
+app.include_router(logs.router)
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):

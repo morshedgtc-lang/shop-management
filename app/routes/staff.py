@@ -65,6 +65,18 @@ async def create_staff(
     }
 
 
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_staff(
+    user_id: int,
+    db=Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Staff not found")
+    return user
+
+
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_staff(
     user_id: int,

@@ -127,6 +127,18 @@ async def create_part(
     return part
 
 
+@router.get("/{part_id}", response_model=PartResponse)
+async def get_part(
+    part_id: int,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    part = (await db.execute(select(Part).where(Part.id == part_id))).scalar_one_or_none()
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+    return part
+
+
 @router.put("/{part_id}", response_model=PartResponse)
 async def update_part(
     part_id: int,

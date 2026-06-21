@@ -67,3 +67,19 @@ python -m uvicorn app.main:app --reload --port 8000
 ## Deployment
 
 Railway auto-deploys from `main` branch. Add PostgreSQL database via Railway dashboard (New → Database → PostgreSQL). Set `JWT_SECRET` env var.
+
+## Progress — 2026-06-21
+
+### Done (this session)
+- Role-based UI sidebar filtering in `app.js` — `rolePages()` returns only permitted nav items per role; `setPage()` redirects to dashboard if user lacks permission; full role map: admin (all), reception (repairs/customers/payments/services), technician (repairs/inventory), warehouse (inventory/suppliers/POs/collections/shops)
+- Login now fetches `GET /api/auth/me` after login to populate `state.user` with role and name; `init()` also fetches user info
+- Logging infrastructure: `app/models/log.py` (LogEntry), `app/utils/logger.py` (async log_event + get_logs + get_log_summary), `app/routes/logs.py` (GET /api/logs, admin-only, with level/source/action/user/date filtering + pagination)
+- Log viewer frontend: `renderLogs()` in `pages.js` with level badges, filter bar, pagination, summary stat cards; "Activity Logs" nav item visible only to admin
+- All imports verified — app starts clean
+
+### Previously
+- Fixed all N+1 query patterns (6 route files + database seed)
+- Fixed 68 lint errors, 26 Pydantic v2 deprecation warnings, FastAPI lifespan pattern
+- Added missing `createRepair()` function in `pages.js` — repair creation now works
+- Added missing `GET /api/staff/{id}` and `GET /api/parts/{id}` endpoints — staff/part edit now works
+- Pushed all changes to GitHub (commit a7cde36 on origin/main)

@@ -9,6 +9,7 @@ from app.models.daily_sale import DailySale
 from app.models.expense import Expense
 from app.models.expense_category import ExpenseCategory
 from app.models.setting import Setting
+from app.models.log import LogEntry
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "Expense",
     "ExpenseCategory",
     "Setting",
+    "LogEntry",
 ]
